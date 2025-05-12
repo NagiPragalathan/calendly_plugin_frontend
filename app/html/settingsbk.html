@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calendly Setting</title>
+    <!-- tailwind css  -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- zoho sdk cdn  -->
+    <script src="../js/lib/zohoSdk.js"></script>
+    <!-- main js  -->
+    <script src="../js/settings.js"></script>
+  </head>
+  <body class="flex flex-col space-y-8 mx-8 mb-8">
+    <script>
+      ZOHO.embeddedApp.init().then(loadSettings);
+    </script>
+    <!-- title  -->
+    <div
+      class="text-3xl text-blue-700 font-bold flex items-center justify-center"
+    >
+      Calendly Setting
+    </div>
+    <div class="text-xl text-blue-700">
+      Select Tasks or Meetings to add Calendly Events
+    </div>
+    <!-- select option for tasks and meetings  -->
+    <select
+      class="w-96 text-xl p-2 rounded-lg"
+      name="task_meeting_option"
+      id="taskMeetingSelect"
+      onchange="changeTaskMeeting()"
+    >
+      <option value="Tasks">Tasks</option>
+      <option value="Events">Meetings</option>
+    </select>
+    <div class="text-xl text-blue-700">
+      Select Leads or Contact for Calendly Invitees
+    </div>
+
+    <!-- select option for tasks and meetings  -->
+    <select
+      class="w-96 text-xl p-2 rounded-lg"
+      name="task_meeting_option"
+      id="leadContactSelect"
+      onchange="changeLeadContact()"
+    >
+      <option value="Leads">Leads</option>
+      <option value="Contacts">Contacts</option>
+    </select>
+    <div
+      class="m-8 flex flex-col bg-gray-100 p-4 space-y-4 rounded-md shadow-md"
+    >
+      <div class="text-3xl font-bold text-blue-600">Help Card</div>
+      <div class="font-bold text-blue-600">
+        Welcome to the Calendly Extension by Xtracut Systems!
+      </div>
+      <div>
+        Our extension is designed to provide you with a seamless experience for
+        managing your appointments and scheduling. We've incorporated two
+        dropdown menus that offer you flexibility and control over your
+        workflow.
+      </div>
+      <div class="font-semibold">
+        The first dropdown menu allows you to choose the destination for adding
+        new person contacts. With a simple selection, you can ensure that your
+        contacts are organized efficiently within your preferred system.
+      </div>
+      <div class="font-semibold">
+        The second dropdown menu empowers you to decide whether new appointments
+        should be added to tasks or meetings. Tailor this setting to match your
+        specific workflow and optimize your scheduling process.
+      </div>
+      <div>
+        For any support or assistance you may need, we're here to help. Reach
+        out to our support team by email at
+        <a href="mailto:support@extracut.com" class="text-blue-600 font-bold"
+          >support@extracut.com</a
+        >, and we'll promptly address your inquiries.
+      </div>
+      <div>
+        Thank you for using the Calendly Extension by Xtracut Systems. We're
+        dedicated to enhancing your scheduling capabilities and making your
+        experience seamless and efficient.
+      </div>
+    </div>
+  </body>
+</html>

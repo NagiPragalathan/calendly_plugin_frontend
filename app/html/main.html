@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calendly Extension</title>
+    <!-- calendly embedded  -->
+    <script
+      type="text/javascript"
+      src="https://assets.calendly.com/assets/external/widget.js"
+    ></script>
+    <!-- tailwind css  -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- zoho sdk cdn  -->
+    <script src="../js/lib/zohoSdk.js"></script>
+    <!-- main js  -->
+    <script src="../js/main.js"></script>
+  </head>
+  <body style="min-width: 320px; height: 100%">
+    <!-- calendly event types   -->
+    <div
+      id="eventTypes"
+      class="flex flex-col text-blue-600 mx-auto items-center space-y-8"
+    >
+      <!-- title  -->
+      <div class="text-3xl font-semibold">Select Event Types</div>
+    </div>
+    <!-- calendly  -->
+    <div
+      id="calendlyApp"
+      class="calendly-inline-widget"
+      style="min-width: 320px; height: 630px"
+      data-auto-load="false"
+    ></div>
+    <!-- main js  -->
+    <script>
+      let entity;
+      let entityId;
+      console.log("calling page load");
+      ZOHO.embeddedApp.on("PageLoad", function (data) {
+        entity = data.Entity;
+        entityId = data.EntityId[0];
+        console.log(entity, entityId);
+      });
+      console.log("init app");
+      ZOHO.embeddedApp.init().then(loadEventTypes);
+    </script>
+  </body>
+</html>
