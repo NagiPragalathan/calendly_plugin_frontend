@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendly Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../../js/lib/jquery-3.3.1.min.js"></script>
+    <script src="../../js/lib/ZohoEmbededAppSDK.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #0f172a;
+        }
+        .dashboard-card {
+            transition: all 0.3s ease;
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .dashboard-card:hover {
+            transform: translateY(-2px);
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .glass-effect {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .nav-link {
+            position: relative;
+            overflow: hidden;
+        }
+        .nav-link::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, rgba(139, 92, 246, 0.1), rgba(244, 114, 182, 0.1));
+            transition: width 0.3s ease;
+        }
+        .nav-link:hover::before {
+            width: 100%;
+        }
+        .stat-value {
+            background: linear-gradient(135deg, #8b5cf6, #f472b6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        @keyframes pulse-border {
+            0% { border-color: rgba(255, 255, 255, 0.1); }
+            50% { border-color: rgba(255, 255, 255, 0.2); }
+            100% { border-color: rgba(255, 255, 255, 0.1); }
+        }
+        .animate-border {
+            animation: pulse-border 2s infinite;
+        }
+        .nav-link.active {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+        .nav-link.active::before {
+            width: 100%;
+        }
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 60%;
+            background: linear-gradient(to bottom, #8b5cf6, #f472b6);
+            border-radius: 0 4px 4px 0;
+        }
+        .nav-link.active span {
+            background: linear-gradient(135deg, #8b5cf6, #f472b6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 600;
+        }
+        .nav-link.active .w-10 {
+            transform: scale(1.05);
+            transition: transform 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white">
+    <div class="min-h-screen flex">
+        <!-- Sidebar -->
+        <aside class="glass-effect w-72 min-h-screen fixed border-r border-slate-700/50">
+            <div class="p-6">
+                <div class="flex items-center justify-center mb-10">
+                    <h1 class="text-2xl font-bold bg-gradient-to-r from-violet-500 to-fuchsia-500 bg-clip-text text-transparent">Calendly</h1>
+                </div>
+                
+                <!-- Navigation Links -->
+                <nav class="space-y-3">
+                    <a href="#" class="nav-link active flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                            <i class="fas fa-home text-white"></i>
+                        </div>
+                        <span class="font-medium">Overall</span>
+                    </a>
+                    <a href="#" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-500/20">
+                            <i class="fas fa-history text-white"></i>
+                        </div>
+                        <span class="font-medium">Past Events</span>
+                    </a>
+                    <a href="#" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                            <i class="fas fa-calendar text-white"></i>
+                        </div>
+                        <span class="font-medium">Upcoming Events</span>
+                    </a>
+                    <a href="#" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                            <i class="fas fa-plus-circle text-white"></i>
+                        </div>
+                        <span class="font-medium">Create Appointment</span>
+                    </a>
+                    <a href="#" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                            <i class="fas fa-cog text-white"></i>
+                        </div>
+                        <span class="font-medium">Settings</span>
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- User Profile Section -->
+            <div class="absolute bottom-0 w-full p-6 border-t border-slate-700/50 glass-effect">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white shadow-lg">
+                        <span id="userInitial" class="text-lg font-semibold">A</span>
+                    </div>
+                    <div class="flex-1">
+                        <h4 id="userName" class="text-sm font-semibold text-white">Loading...</h4>
+                        <p id="userEmail" class="text-xs text-slate-400">Loading...</p>
+                    </div>
+                    <button class="w-8 h-8 rounded-lg hover:bg-slate-800/50 flex items-center justify-center text-slate-400 transition-colors">
+                        <i class="fas fa-chevron-down text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 ml-72 p-8">
+            <div class="max-w-7xl mx-auto">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-10">
+                    <div>
+                        <h1 class="text-3xl font-bold text-white">Welcome back, Arun! <span class="animate-pulse">👋</span></h1>
+                        <p class="text-slate-400 mt-1">Here's what's happening with your schedule</p>
+                    </div>
+                    <div class="flex space-x-4">
+                        <button class="px-4 py-2 glass-effect text-slate-300 rounded-xl hover:bg-slate-800/50 transition-colors flex items-center space-x-2">
+                            <i class="fas fa-download"></i>
+                            <span>Export</span>
+                        </button>
+                        <button class="px-4 py-2 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-xl hover:opacity-90 transition-opacity flex items-center space-x-2">
+                            <i class="fas fa-plus"></i>
+                            <span>New Event</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+                    <div class="dashboard-card p-6 rounded-2xl animate-border">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                                <i class="fas fa-calendar-day text-white text-xl"></i>
+                            </div>
+                            <span class="text-sm font-medium text-violet-400 bg-violet-500/10 px-4 py-1.5 rounded-full">Today</span>
+                        </div>
+                        <h3 class="text-slate-400 text-sm font-medium">Today's Meetings</h3>
+                        <div class="flex items-end justify-between mt-2">
+                            <p id="todayMeetings" class="text-3xl font-bold stat-value">0</p>
+                            <span class="text-emerald-400 flex items-center text-sm bg-emerald-500/10 px-2 py-1 rounded-full">
+                                <i class="fas fa-arrow-up mr-1"></i> Active
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card p-6 rounded-2xl animate-border">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                                <i class="fas fa-calendar-week text-white text-xl"></i>
+                            </div>
+                            <span class="text-sm font-medium text-emerald-400 bg-emerald-500/10 px-4 py-1.5 rounded-full">Upcoming</span>
+                        </div>
+                        <h3 class="text-slate-400 text-sm font-medium">Upcoming Events</h3>
+                        <div class="flex items-end justify-between mt-2">
+                            <p id="upcomingEvents" class="text-3xl font-bold stat-value">0</p>
+                            <span class="text-emerald-400 flex items-center text-sm bg-emerald-500/10 px-2 py-1 rounded-full">
+                                <i class="fas fa-arrow-up mr-1"></i> Scheduled
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card p-6 rounded-2xl animate-border">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-500/20">
+                                <i class="fas fa-list text-white text-xl"></i>
+                            </div>
+                            <span class="text-sm font-medium text-pink-400 bg-pink-500/10 px-4 py-1.5 rounded-full">Total</span>
+                        </div>
+                        <h3 class="text-slate-400 text-sm font-medium">Event Types</h3>
+                        <div class="flex items-end justify-between mt-2">
+                            <p id="totalEventTypes" class="text-3xl font-bold stat-value">0</p>
+                            <span class="text-emerald-400 flex items-center text-sm bg-emerald-500/10 px-2 py-1 rounded-full">
+                                <i class="fas fa-check mr-1"></i> Active
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Info Card -->
+                <div class="glass-effect rounded-2xl overflow-hidden shadow-2xl">
+                    <div class="p-6 border-b border-slate-700/50 bg-slate-800/30">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-xl font-semibold text-white">Profile Information</h2>
+                            <button class="px-4 py-2 text-violet-400 hover:text-violet-300 font-medium text-sm flex items-center space-x-2 bg-violet-500/10 rounded-xl hover:bg-violet-500/20 transition-all">
+                                <i class="fas fa-pen-to-square"></i>
+                                <span>Edit Profile</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-1">
+                                <p class="text-sm font-medium text-slate-400">Full Name</p>
+                                <p id="userName" class="text-base text-white">Loading...</p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-sm font-medium text-slate-400">Email Address</p>
+                                <p id="userEmail" class="text-base text-white">Loading...</p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-sm font-medium text-slate-400">Timezone</p>
+                                <p id="userTimezone" class="text-base text-white">Loading...</p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-sm font-medium text-slate-400">Scheduling URL</p>
+                                <a id="userSchedulingUrl" href="#" 
+                                   class="text-base text-violet-400 hover:text-violet-300 flex items-center space-x-2" 
+                                   target="_blank">
+                                    <span>Loading...</span>
+                                    <i class="fas fa-external-link-alt text-xs"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            console.log('DOM Content Loaded');
+            
+            if (typeof ZOHO === "undefined") {
+                console.error("ZOHO SDK not loaded");
+                return;
+            }
+            
+            console.log('Initializing ZOHO Embedded App...');
+            ZOHO.embeddedApp.init()
+                .then(function() {
+                    console.log('ZOHO SDK initialized successfully');
+                    fetchCalendlyData();
+                })
+                .catch(function(error) {
+                    console.error("SDK Initialization error:", error);
+                    console.error('Error stack:', error.stack);
+                });
+        });
+
+        function fetchCalendlyData() {
+            console.log('Starting to fetch Calendly data...');
+            const requestTypes = [
+                { type: 1, key: 'appointmentTypes' },
+                { type: 2, key: 'upcomingAppointments' },
+                { type: 3, key: 'currentUserData' }
+            ];
+
+            requestTypes.forEach(req => {
+                console.log(`Fetching ${req.key} data...`);
+                ZOHO.CRM.FUNCTIONS.execute("calendly10__apihandler", {
+                    crmAPIRequest: { type: req.type }
+                })
+                .then(data => {
+                    console.log(`Raw response for ${req.key}:`, data);
+                    
+                    if (data.details && data.details.output) {
+                        console.log(`Output data for ${req.key}:`, data.details.output);
+                        const outputData = JSON.parse(data.details.output);
+                        console.log(`Parsed output data for ${req.key}:`, outputData);
+                        
+                        if (outputData.response) {
+                            const parsedData = JSON.parse(outputData.response);
+                            console.log(`Final parsed data for ${req.key}:`, parsedData);
+                            updateDashboard(req.key, parsedData);
+                        } else {
+                            console.warn(`No response data found for ${req.key}`);
+                        }
+                    } else {
+                        console.warn(`Invalid data structure for ${req.key}:`, data);
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error fetching ${req.key}:`, error);
+                    console.error('Error stack:', error.stack);
+                });
+            });
+        }
+
+        function updateDashboard(dataType, data) {
+            console.log(`Updating dashboard for ${dataType}`, data);
+            
+            switch(dataType) {
+                case 'appointmentTypes':
+                    const types = data.collection || [];
+                    console.log('Appointment types:', types);
+                    document.getElementById('totalEventTypes').textContent = types.length;
+                    console.log(`Updated total event types count: ${types.length}`);
+                    
+                    // Update event types list
+                    const eventTypesList = document.getElementById('eventTypesList');
+                    console.log('Rendering event types to UI...');
+                    eventTypesList.innerHTML = types.map(type => {
+                        console.log('Processing event type:', type);
+                        return `
+                            <div class="dashboard-card p-4 rounded-xl">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-lg" style="background-color: ${type.color}">
+                                    </div>
+                                    <div class="flex-1">
+                                        <h4 class="font-medium text-white">${type.name}</h4>
+                                        <div class="flex items-center space-x-2 text-sm text-slate-400">
+                                            <span>${type.duration} mins</span>
+                                            <span>•</span>
+                                            <span>${type.scheduling_url}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        ${type.active ? 
+                                            '<span class="px-2 py-1 text-xs text-emerald-400 bg-emerald-500/10 rounded-full">Active</span>' : 
+                                            '<span class="px-2 py-1 text-xs text-red-400 bg-red-500/10 rounded-full">Inactive</span>'
+                                        }
+                                    </div>
+                                </div>
+                                ${type.description_plain ? 
+                                    `<p class="mt-2 text-sm text-slate-400">${type.description_plain}</p>` : ''
+                                }
+                                ${type.custom_questions?.length ? `
+                                    <div class="mt-3 pt-3 border-t border-slate-700/50">
+                                        <p class="text-sm font-medium text-slate-300">Custom Questions:</p>
+                                        <ul class="mt-2 space-y-1">
+                                            ${type.custom_questions.map(q => `
+                                                <li class="text-sm text-slate-400">• ${q.name}</li>
+                                            `).join('')}
+                                        </ul>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('');
+                    console.log('Finished rendering event types');
+                    break;
+                
+                case 'upcomingAppointments':
+                    const appointments = data.collection || [];
+                    console.log('Upcoming appointments:', appointments);
+                    const upcomingCount = appointments.length;
+                    document.getElementById('upcomingEvents').textContent = upcomingCount;
+                    console.log(`Updated upcoming events count: ${upcomingCount}`);
+                    
+                    // Count today's meetings
+                    const today = new Date().toISOString().split('T')[0];
+                    console.log('Today\'s date for filtering:', today);
+                    const todayMeetings = appointments.filter(event => {
+                        const isToday = event.start_time.startsWith(today);
+                        console.log(`Checking meeting ${event.name}: ${isToday ? 'is today' : 'not today'}`);
+                        return isToday;
+                    });
+                    document.getElementById('todayMeetings').textContent = todayMeetings.length;
+                    console.log(`Updated today's meetings count: ${todayMeetings.length}`);
+
+                    // Update upcoming meetings list
+                    const meetingsList = document.getElementById('upcomingMeetingsList');
+                    console.log('Rendering upcoming meetings to UI...');
+                    meetingsList.innerHTML = appointments.map(meeting => {
+                        console.log('Processing meeting:', meeting);
+                        const startTime = new Date(meeting.start_time);
+                        const endTime = new Date(meeting.end_time);
+                        return `
+                            <div class="dashboard-card p-4 rounded-xl">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="font-medium text-white">${meeting.name}</h4>
+                                    <span class="px-2 py-1 text-xs ${
+                                        meeting.status === 'active' ? 'text-emerald-400 bg-emerald-500/10' : 
+                                        'text-amber-400 bg-amber-500/10'
+                                    } rounded-full">
+                                        ${meeting.status.charAt(0).toUpperCase() + meeting.status.slice(1)}
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p class="text-sm text-slate-400">Start Time</p>
+                                        <p class="text-sm text-white">${startTime.toLocaleString()}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-slate-400">End Time</p>
+                                        <p class="text-sm text-white">${endTime.toLocaleString()}</p>
+                                    </div>
+                                </div>
+                                ${meeting.location ? `
+                                    <div class="mt-3 pt-3 border-t border-slate-700/50">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-sm text-slate-400">Meeting Location</span>
+                                            ${meeting.location.join_url ? `
+                                                <a href="${meeting.location.join_url}" 
+                                                   target="_blank"
+                                                   class="text-sm text-violet-400 hover:text-violet-300">
+                                                    Join Meeting
+                                                    <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                                </a>
+                                            ` : ''}
+                                        </div>
+                                        <p class="text-sm text-white mt-1">${meeting.location.type.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('');
+                    console.log('Finished rendering upcoming meetings');
+                    break;
+                
+                case 'currentUserData':
+                    console.log('Current user data:', data);
+                    if (data.resource) {
+                        const user = data.resource;
+                        console.log('Processing user data:', user);
+                        
+                        // Update all user-related elements
+                        document.querySelectorAll('[id="userName"]').forEach(el => {
+                            el.textContent = user.name;
+                            console.log(`Updated userName element with: ${user.name}`);
+                        });
+                        
+                        document.querySelectorAll('[id="userEmail"]').forEach(el => {
+                            el.textContent = user.email;
+                            console.log(`Updated userEmail element with: ${user.email}`);
+                        });
+                        
+                        const userElements = {
+                            'userTimezone': user.timezone,
+                            'userInitial': user.name.charAt(0).toUpperCase(),
+                            'userLocale': user.locale.toUpperCase(),
+                            'userTimeNotation': user.time_notation === '12h' ? '12-hour' : '24-hour',
+                            'userCreatedAt': new Date(user.created_at).toLocaleDateString()
+                        };
+                        
+                        Object.entries(userElements).forEach(([elementId, value]) => {
+                            const element = document.getElementById(elementId);
+                            if (element) {
+                                element.textContent = value;
+                                console.log(`Updated ${elementId} with: ${value}`);
+                            } else {
+                                console.warn(`Element not found: ${elementId}`);
+                            }
+                        });
+                        
+                        const schedulingUrlElement = document.getElementById('userSchedulingUrl');
+                        if (schedulingUrlElement) {
+                            schedulingUrlElement.href = user.scheduling_url;
+                            schedulingUrlElement.querySelector('span').textContent = 
+                                user.scheduling_url.replace('https://', '');
+                            console.log(`Updated scheduling URL with: ${user.scheduling_url}`);
+                        }
+                    } else {
+                        console.warn('No user resource data found:', data);
+                    }
+                    break;
+            }
+        }
+    </script>
+
+    <!-- Add after the stats grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+        <!-- Upcoming Meetings Section -->
+        <div class="glass-effect rounded-2xl overflow-hidden shadow-2xl">
+            <div class="p-6 border-b border-slate-700/50 bg-slate-800/30">
+                <h2 class="text-xl font-semibold text-white">Upcoming Meetings</h2>
+            </div>
+            <div class="p-6">
+                <div id="upcomingMeetingsList" class="space-y-4">
+                    <!-- Meetings will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Event Types Section -->
+        <div class="glass-effect rounded-2xl overflow-hidden shadow-2xl">
+            <div class="p-6 border-b border-slate-700/50 bg-slate-800/30">
+                <h2 class="text-xl font-semibold text-white">Event Types</h2>
+            </div>
+            <div class="p-6">
+                <div id="eventTypesList" class="space-y-4">
+                    <!-- Event types will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced User Profile Section -->
+    <div class="glass-effect rounded-2xl overflow-hidden shadow-2xl">
+        <div class="p-6 border-b border-slate-700/50 bg-slate-800/30">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-white">Profile Information</h2>
+                <button class="px-4 py-2 text-violet-400 hover:text-violet-300 font-medium text-sm flex items-center space-x-2 bg-violet-500/10 rounded-xl hover:bg-violet-500/20 transition-all">
+                    <i class="fas fa-pen-to-square"></i>
+                    <span>Edit Profile</span>
+                </button>
+            </div>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="space-y-1">
+                    <p class="text-sm font-medium text-slate-400">Full Name</p>
+                    <p id="userName" class="text-base text-white">Loading...</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-sm font-medium text-slate-400">Email Address</p>
+                    <p id="userEmail" class="text-base text-white">Loading...</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-sm font-medium text-slate-400">Timezone</p>
+                    <p id="userTimezone" class="text-base text-white">Loading...</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-sm font-medium text-slate-400">Language</p>
+                    <p id="userLocale" class="text-base text-white">Loading...</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-sm font-medium text-slate-400">Time Format</p>
+                    <p id="userTimeNotation" class="text-base text-white">Loading...</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-sm font-medium text-slate-400">Member Since</p>
+                    <p id="userCreatedAt" class="text-base text-white">Loading...</p>
+                </div>
+                <div class="space-y-1 col-span-full">
+                    <p class="text-sm font-medium text-slate-400">Scheduling URL</p>
+                    <a id="userSchedulingUrl" href="#" 
+                       class="text-base text-violet-400 hover:text-violet-300 flex items-center space-x-2" 
+                       target="_blank">
+                        <span>Loading...</span>
+                        <i class="fas fa-external-link-alt text-xs"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

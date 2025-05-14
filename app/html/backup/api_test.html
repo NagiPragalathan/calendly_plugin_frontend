@@ -96,7 +96,6 @@
                 logDebug("ZOHO SDK initialized successfully");
                 fetchAppointmentTypes();
                 fetchUpcomingAppointments();
-                fetchCurrentUserData();
             }).catch(function(error) {
                 handleError(error, "SDK Initialization");
             });
@@ -109,8 +108,12 @@
                 crmAPIRequest: { type: 1 }
             };
             
+            logDebug("Request data for appointment types", requestData);
+            
             ZOHO.CRM.FUNCTIONS.execute("calendly10__apihandler", requestData)
                 .then(function(data) {
+                    logDebug("Raw response from Zoho function for appointment types", data);
+                    
                     try {
                         if (data.code === "INVALID_DATA" || data.code === "ERROR") {
                             throw new Error(data.message || "Error from Zoho function");
@@ -121,6 +124,7 @@
                         }
                         
                         const outputData = JSON.parse(data.details.output);
+                        logDebug("Parsed output data for appointment types", outputData);
                         
                         if (outputData.status_code !== 200) {
                             throw new Error(`API returned status code ${outputData.status_code}`);
@@ -131,9 +135,15 @@
                         }
                         
                         const appointmentTypes = JSON.parse(outputData.response);
-                        // Store in localStorage
-                        localStorage.setItem('appointmentTypes', JSON.stringify(appointmentTypes));
-                        updateDisplay();
+                        logDebug("Final appointment types data", appointmentTypes);
+                        
+                        const container = document.createElement('div');
+                        container.className = 'section';
+                        container.innerHTML = `
+                            <h2>Appointment Types (Type: 1)</h2>
+                            <pre>${JSON.stringify(appointmentTypes, null, 2)}</pre>
+                        `;
+                        document.body.appendChild(container);
                         
                     } catch (error) {
                         handleError(error, "Processing Appointment Types");
@@ -151,8 +161,12 @@
                 crmAPIRequest: { type: 2 }
             };
             
+            logDebug("Request data for appointments", requestData);
+            
             ZOHO.CRM.FUNCTIONS.execute("calendly10__apihandler", requestData)
                 .then(function(data) {
+                    logDebug("Raw response from Zoho function for appointments", data);
+                    
                     try {
                         if (data.code === "INVALID_DATA" || data.code === "ERROR") {
                             throw new Error(data.message || "Error from Zoho function");
@@ -163,6 +177,7 @@
                         }
                         
                         const outputData = JSON.parse(data.details.output);
+                        logDebug("Parsed output data for appointments", outputData);
                         
                         if (outputData.status_code !== 200) {
                             throw new Error(`API returned status code ${outputData.status_code}`);
@@ -173,9 +188,15 @@
                         }
                         
                         const appointments = JSON.parse(outputData.response);
-                        // Store in localStorage
-                        localStorage.setItem('upcomingAppointments', JSON.stringify(appointments));
-                        updateDisplay();
+                        logDebug("Final appointments data", appointments);
+                        
+                        const container = document.createElement('div');
+                        container.className = 'section';
+                        container.innerHTML = `
+                            <h2>Upcoming Appointments (Type: 2)</h2>
+                            <pre>${JSON.stringify(appointments, null, 2)}</pre>
+                        `;
+                        document.body.appendChild(container);
                         
                     } catch (error) {
                         handleError(error, "Processing Appointments");
@@ -185,83 +206,12 @@
                     handleError(error, "Fetching Appointments");
                 });
         }
-        
-        function fetchCurrentUserData() {
-            logDebug("Fetching current user data");
-            
-            const requestData = {
-                crmAPIRequest: { type: 3 }
-            };
-            
-            ZOHO.CRM.FUNCTIONS.execute("calendly10__apihandler", requestData)
-                .then(function(data) {
-                    try {
-                        if (data.code === "INVALID_DATA" || data.code === "ERROR") {
-                            throw new Error(data.message || "Error from Zoho function");
-                        }
-                        
-                        if (!data.details || !data.details.output) {
-                            throw new Error("Invalid response structure from Zoho function");
-                        }
-                        
-                        const outputData = JSON.parse(data.details.output);
-                        
-                        if (outputData.status_code !== 200) {
-                            throw new Error(`API returned status code ${outputData.status_code}`);
-                        }
-                        
-                        if (!outputData.response) {
-                            throw new Error("No response data found");
-                        }
-                        
-                        const userData = JSON.parse(outputData.response);
-                        // Store in localStorage
-                        localStorage.setItem('currentUserData', JSON.stringify(userData));
-                        updateDisplay();
-                        
-                    } catch (error) {
-                        handleError(error, "Processing Current User Data");
-                    }
-                })
-                .catch(function(error) {
-                    handleError(error, "Fetching Current User Data");
-                });
-        }
-
-        // New function to update the display when all data is available
-        function updateDisplay() {
-            const appointmentTypes = localStorage.getItem('appointmentTypes');
-            const upcomingAppointments = localStorage.getItem('upcomingAppointments');
-            const currentUserData = localStorage.getItem('currentUserData');
-            
-            // Only update display if all data is available
-            if (appointmentTypes && upcomingAppointments && currentUserData) {
-                // Clear existing content
-                const container = document.querySelector('.container');
-                container.innerHTML = '<h1>Acuity Scheduling Data</h1>';
-                
-                // Create sections for each data type
-                const sections = [
-                    { title: 'Appointment Types', data: JSON.parse(appointmentTypes) },
-                    { title: 'Upcoming Appointments', data: JSON.parse(upcomingAppointments) },
-                    { title: 'Current User Data', data: JSON.parse(currentUserData) }
-                ];
-                
-                sections.forEach(section => {
-                    const sectionElement = document.createElement('div');
-                    sectionElement.className = 'section';
-                    sectionElement.innerHTML = `
-                        <h2>${section.title}</h2>
-                        <pre>${JSON.stringify(section.data, null, 2)}</pre>
-                    `;
-                    container.appendChild(sectionElement);
-                });
-            }
-        }
     </script>
 </head>
 <body>
-    <a href="dashboard.html">Dashboard</a>
+    <a href="new_test_api.html">New Test API</a>
+    <br>
+    <a href="old_test_api.html">Old Test API</a>
     <div class="container">
         <h1>Acuity Scheduling Data</h1>
         <div id="debugContainer"></div>
