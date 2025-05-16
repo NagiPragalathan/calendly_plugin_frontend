@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Past Events - Calendly</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../../js/lib/jquery-3.3.1.min.js"></script>
+    <script src="../../js/lib/ZohoEmbededAppSDK.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #0f172a;
+        }
+        .dashboard-card {
+            transition: all 0.3s ease;
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .dashboard-card:hover {
+            transform: translateY(-2px);
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .glass-effect {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .nav-link {
+            position: relative;
+            overflow: hidden;
+        }
+        .nav-link::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, rgba(139, 92, 246, 0.1), rgba(244, 114, 182, 0.1));
+            transition: width 0.3s ease;
+        }
+        .nav-link:hover::before {
+            width: 100%;
+        }
+        .stat-value {
+            background: linear-gradient(135deg, #8b5cf6, #f472b6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        @keyframes pulse-border {
+            0% { border-color: rgba(255, 255, 255, 0.1); }
+            50% { border-color: rgba(255, 255, 255, 0.2); }
+            100% { border-color: rgba(255, 255, 255, 0.1); }
+        }
+        .animate-border {
+            animation: pulse-border 2s infinite;
+        }
+        .nav-link.active {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+        .nav-link.active::before {
+            width: 100%;
+        }
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 60%;
+            background: linear-gradient(to bottom, #8b5cf6, #f472b6);
+            border-radius: 0 4px 4px 0;
+        }
+        .nav-link.active span {
+            background: linear-gradient(135deg, #8b5cf6, #f472b6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 600;
+        }
+        .nav-link.active .w-10 {
+            transform: scale(1.05);
+            transition: transform 0.3s ease;
+        }
+        .main-content-wrapper {
+            padding-left: 18rem;
+            width: 100%;
+            min-height: 100vh;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content-wrapper {
+                padding-left: 0;
+                margin-top: 4rem;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: fixed;
+                top: 0;
+                z-index: 50;
+            }
+        }
+
+        .loading-placeholder {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(90deg, rgba(148, 163, 184, 0.1) 25%, rgba(148, 163, 184, 0.2) 50%, rgba(148, 163, 184, 0.1) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 0.375rem;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .loading-skeleton {
+            min-height: 1.5rem;
+            min-width: 150px;
+            display: inline-block;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Show loading screen initially
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.display = 'flex';
+
+            // Load user data first
+            const userDataString = localStorage.getItem('calendly_current_user');
+            if (userDataString) {
+                try {
+                    const userData = JSON.parse(userDataString);
+                    if (userData.resource) {
+                        updateUserInfo(userData.resource);
+                    }
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
+                }
+            }
+
+            // Load past events
+            const pastEventsData = localStorage.getItem('calendly_past_events');
+            if (pastEventsData) {
+                try {
+                    const pastEvents = JSON.parse(pastEventsData);
+                    displayPastEvents(pastEvents);
+                    updateStats(pastEvents);
+                    hideLoadingScreen(); // Hide loading screen after data is loaded
+                } catch (error) {
+                    console.error('Error parsing past events:', error);
+                    hideLoadingScreen('Error loading past events data');
+                }
+            } else {
+                console.log('No past events found in localStorage');
+                displayNoEventsMessage();
+                hideLoadingScreen(); // Hide loading screen even if no data
+            }
+        });
+
+        function updateUserInfo(user) {
+            // Update user initial
+            const userInitial = document.getElementById('userInitial');
+            if (userInitial) {
+                userInitial.textContent = user.name.charAt(0).toUpperCase();
+                userInitial.classList.remove('loading-placeholder');
+            }
+
+            // Update user name
+            const userName = document.getElementById('userName');
+            if (userName) {
+                userName.textContent = user.name;
+                userName.classList.remove('loading-placeholder');
+            }
+
+            // Update user email
+            const userEmail = document.getElementById('userEmail');
+            if (userEmail) {
+                userEmail.textContent = user.email;
+                userEmail.classList.remove('loading-placeholder');
+            }
+        }
+
+        function hideLoadingScreen(errorMessage = null) {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            if (!loadingOverlay) return;
+
+            if (errorMessage) {
+                const loadingContent = loadingOverlay.querySelector('.text-center');
+                if (loadingContent) {
+                    loadingContent.innerHTML = `
+                        <div class="w-20 h-20 rounded-xl bg-red-500/20 flex items-center justify-center mb-4 mx-auto">
+                            <i class="fas fa-exclamation-triangle text-2xl text-red-400"></i>
+                        </div>
+                        <h2 class="text-xl font-semibold text-white mb-2">Error Loading Data</h2>
+                        <p class="text-red-400">${errorMessage}</p>
+                    `;
+                }
+                setTimeout(() => {
+                    loadingOverlay.style.display = 'none';
+                }, 3000);
+            } else {
+                loadingOverlay.style.opacity = '0';
+                loadingOverlay.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => {
+                    loadingOverlay.style.display = 'none';
+                    loadingOverlay.style.opacity = '1';
+                }, 500);
+            }
+        }
+
+        function displayPastEvents(events) {
+            const container = document.getElementById('pastEventsList');
+            if (!container) return;
+
+            if (!events || events.length === 0) {
+                displayNoEventsMessage();
+                return;
+            }
+
+            // Sort events by start time in descending order (most recent first)
+            events.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
+
+            const eventsHTML = events.map(event => {
+                const startTime = new Date(event.start_time);
+                const endTime = new Date(event.end_time);
+                const duration = (endTime - startTime) / (1000 * 60); // Duration in minutes
+
+                return `
+                    <div class="dashboard-card p-6 rounded-xl">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center">
+                                    <i class="fas fa-calendar-check text-white text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-white">${event.name}</h3>
+                                    <p class="text-slate-400 text-sm">${duration} minutes</p>
+                                </div>
+                            </div>
+                            <span class="px-3 py-1 text-sm ${
+                                event.status === 'active' ? 'text-emerald-400 bg-emerald-500/10' : 
+                                'text-amber-400 bg-amber-500/10'
+                            } rounded-full">
+                                ${event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+                            </span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="p-4 rounded-lg bg-slate-800/50">
+                                <p class="text-sm text-slate-400 mb-1">Start Time</p>
+                                <p class="text-white">${startTime.toLocaleString()}</p>
+                            </div>
+                            <div class="p-4 rounded-lg bg-slate-800/50">
+                                <p class="text-sm text-slate-400 mb-1">End Time</p>
+                                <p class="text-white">${endTime.toLocaleString()}</p>
+                            </div>
+                        </div>
+
+                        ${event.location ? `
+                            <div class="mt-4 p-4 rounded-lg bg-slate-800/50">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-slate-400 mb-1">Meeting Location</p>
+                                        <p class="text-white">${event.location.type.replace(/_/g, ' ').split(' ').map(word => 
+                                            word.charAt(0).toUpperCase() + word.slice(1)
+                                        ).join(' ')}</p>
+                                    </div>
+                                    ${event.location.join_url ? `
+                                        <a href="${event.location.join_url}" 
+                                           target="_blank"
+                                           class="px-4 py-2 bg-violet-500/10 text-violet-400 rounded-lg hover:bg-violet-500/20 transition-colors">
+                                            View Recording
+                                            <i class="fas fa-external-link-alt ml-2"></i>
+                                        </a>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- View More Button -->
+                        <div class="mt-4 flex justify-end">
+                            <button onclick='showEventDetailsModal(${JSON.stringify(event).replace(/'/g, "&apos;")})' 
+                                    class="px-4 py-2 bg-violet-500/10 text-violet-400 rounded-lg hover:bg-violet-500/20 transition-colors flex items-center space-x-2">
+                                <span>View More</span>
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = eventsHTML;
+        }
+
+        function updateStats(events) {
+            const totalEvents = events.length;
+            const totalDuration = events.reduce((total, event) => {
+                const duration = (new Date(event.end_time) - new Date(event.start_time)) / (1000 * 60);
+                return total + duration;
+            }, 0);
+            const averageDuration = totalEvents > 0 ? Math.round(totalDuration / totalEvents) : 0;
+
+            // Update stats with animation
+            const stats = {
+                'totalPastEvents': totalEvents,
+                'totalDuration': `${Math.round(totalDuration)} mins`,
+                'averageDuration': `${averageDuration} mins`
+            };
+
+            Object.entries(stats).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = value;
+                    element.classList.add('stat-value');
+                }
+            });
+        }
+
+        function displayNoEventsMessage() {
+            const container = document.getElementById('pastEventsList');
+            if (!container) return;
+
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-calendar-xmark text-3xl text-slate-400"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-white mb-2">No Past Events</h3>
+                    <p class="text-slate-400">You haven't had any meetings yet.</p>
+                </div>
+            `;
+        }
+
+        // Add this function to display the detailed modal
+        function showEventDetailsModal(event) {
+            // Create modal HTML
+            const modalHTML = `
+                <div id="eventDetailsModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
+                    <div class="bg-slate-800 rounded-2xl w-full max-w-4xl mx-4 overflow-hidden shadow-2xl border border-slate-700/50">
+                        <!-- Modal Header -->
+                        <div class="p-6 border-b border-slate-700/50 flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                                    <i class="fas fa-calendar-alt text-white text-xl"></i>
+                                </div>
+                                <h3 class="text-xl font-semibold text-white">Event Details</h3>
+                            </div>
+                            <button onclick="closeEventDetailsModal()" class="text-slate-400 hover:text-white transition-colors">
+                                <i class="fas fa-times text-lg"></i>
+                            </button>
+                        </div>
+
+                        <!-- Modal Content -->
+                        <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                            <!-- Basic Information -->
+                            <div class="space-y-4">
+                                <h4 class="text-lg font-semibold text-violet-400">Basic Information</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="p-4 rounded-lg bg-slate-800/50">
+                                        <p class="text-sm text-slate-400 mb-1">Event Name</p>
+                                        <p class="text-white">${event.name}</p>
+                                    </div>
+                                    <div class="p-4 rounded-lg bg-slate-800/50">
+                                        <p class="text-sm text-slate-400 mb-1">Status</p>
+                                        <span class="px-3 py-1 text-sm ${
+                                            event.status === 'active' ? 'text-emerald-400 bg-emerald-500/10' : 
+                                            'text-amber-400 bg-amber-500/10'
+                                        } rounded-full">
+                                            ${event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Time Information -->
+                            <div class="space-y-4">
+                                <h4 class="text-lg font-semibold text-violet-400">Time Information</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="p-4 rounded-lg bg-slate-800/50">
+                                        <p class="text-sm text-slate-400 mb-1">Start Time</p>
+                                        <p class="text-white">${new Date(event.start_time).toLocaleString()}</p>
+                                    </div>
+                                    <div class="p-4 rounded-lg bg-slate-800/50">
+                                        <p class="text-sm text-slate-400 mb-1">End Time</p>
+                                        <p class="text-white">${new Date(event.end_time).toLocaleString()}</p>
+                                    </div>
+                                    <div class="p-4 rounded-lg bg-slate-800/50">
+                                        <p class="text-sm text-slate-400 mb-1">Created At</p>
+                                        <p class="text-white">${new Date(event.created_at).toLocaleString()}</p>
+                                    </div>
+                                    <div class="p-4 rounded-lg bg-slate-800/50">
+                                        <p class="text-sm text-slate-400 mb-1">Last Updated</p>
+                                        <p class="text-white">${new Date(event.updated_at).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Location Information -->
+                            ${event.location ? `
+                                <div class="space-y-4">
+                                    <h4 class="text-lg font-semibold text-violet-400">Location Details</h4>
+                                    <div class="p-4 rounded-lg bg-slate-800/50">
+                                        <div class="flex items-center justify-between">
+                                            <div>
+                                                <p class="text-sm text-slate-400 mb-1">Meeting Type</p>
+                                                <p class="text-white">${event.location.type.replace(/_/g, ' ').split(' ').map(word => 
+                                                    word.charAt(0).toUpperCase() + word.slice(1)
+                                                ).join(' ')}</p>
+                                            </div>
+                                            ${event.location.join_url ? `
+                                                <a href="${event.location.join_url}" 
+                                                   target="_blank"
+                                                   class="px-4 py-2 bg-violet-500/10 text-violet-400 rounded-lg hover:bg-violet-500/20 transition-colors">
+                                                    Join Meeting
+                                                    <i class="fas fa-external-link-alt ml-2"></i>
+                                                </a>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            <!-- Calendar Information -->
+                            ${event.calendar_event ? `
+                                <div class="space-y-4">
+                                    <h4 class="text-lg font-semibold text-violet-400">Calendar Details</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="p-4 rounded-lg bg-slate-800/50">
+                                            <p class="text-sm text-slate-400 mb-1">Calendar Type</p>
+                                            <p class="text-white">${event.calendar_event.kind.charAt(0).toUpperCase() + event.calendar_event.kind.slice(1)}</p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-slate-800/50">
+                                            <p class="text-sm text-slate-400 mb-1">External ID</p>
+                                            <p class="text-white">${event.calendar_event.external_id}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            <!-- Event Members -->
+                            ${event.event_memberships && event.event_memberships.length > 0 ? `
+                                <div class="space-y-4">
+                                    <h4 class="text-lg font-semibold text-violet-400">Event Members</h4>
+                                    <div class="space-y-3">
+                                        ${event.event_memberships.map(member => `
+                                            <div class="p-4 rounded-lg bg-slate-800/50">
+                                                <div class="flex items-center space-x-4">
+                                                    <div class="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center">
+                                                        <i class="fas fa-user text-violet-400"></i>
+                                                    </div>
+                                                    <div>
+                                                        <p class="text-white font-medium">${member.user_name}</p>
+                                                        <p class="text-sm text-slate-400">${member.user_email}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            <!-- Invitee Information -->
+                            <div class="space-y-4">
+                                <h4 class="text-lg font-semibold text-violet-400">Invitee Information</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="p-4 rounded-lg bg-slate-800/50">
+                                        <p class="text-sm text-slate-400 mb-1">Active Invitees</p>
+                                        <p class="text-white">${event.invitees_counter.active}</p>
+                                    </div>
+                                    <div class="p-4 rounded-lg bg-slate-800/50">
+                                        <p class="text-sm text-slate-400 mb-1">Total Invitees</p>
+                                        <p class="text-white">${event.invitees_counter.total}</p>
+                                    </div>
+                                    <div class="p-4 rounded-lg bg-slate-800/50">
+                                        <p class="text-sm text-slate-400 mb-1">Limit</p>
+                                        <p class="text-white">${event.invitees_counter.limit}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Additional Information -->
+                            <div class="space-y-4">
+                                <h4 class="text-lg font-semibold text-violet-400">Additional Information</h4>
+                                <div class="p-4 rounded-lg bg-slate-800/50">
+                                    <p class="text-sm text-slate-400 mb-1">Event URI</p>
+                                    <p class="text-white break-all">${event.uri}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Modal Footer -->
+                        <div class="p-6 border-t border-slate-700/50 flex justify-end">
+                            <button onclick="closeEventDetailsModal()" 
+                                    class="px-6 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add modal to body
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        // Add this function to close the modal
+        function closeEventDetailsModal() {
+            const modal = document.getElementById('eventDetailsModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-900 text-white">
+    <div class="min-h-screen flex">
+        <!-- Sidebar -->
+        <aside class="sidebar glass-effect w-72 min-h-screen fixed border-r border-slate-700/50">
+            <div class="p-6">
+                <div class="flex items-center justify-center mb-10">
+                    <h1 class="text-2xl font-bold bg-gradient-to-r from-violet-500 to-fuchsia-500 bg-clip-text text-transparent">Calendly</h1>
+                </div>
+                
+                <!-- Navigation Links -->
+                <nav class="space-y-3">
+                    <a href="dashboard.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                            <i class="fas fa-home text-white"></i>
+                        </div>
+                        <span class="font-medium">Overall</span>
+                    </a>
+                    <a href="past_events.html" class="nav-link active flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-500/20">
+                            <i class="fas fa-history text-white"></i>
+                        </div>
+                        <span class="font-medium">Past Events</span>
+                    </a>
+                    <a href="#" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                            <i class="fas fa-calendar text-white"></i>
+                        </div>
+                        <span class="font-medium">Upcoming Events</span>
+                    </a>
+                    <a href="#" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                            <i class="fas fa-plus-circle text-white"></i>
+                        </div>
+                        <span class="font-medium">Create Appointment</span>
+                    </a>
+                    <a href="#" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                            <i class="fas fa-cog text-white"></i>
+                        </div>
+                        <span class="font-medium">Settings</span>
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- User Profile Section -->
+            <div class="absolute bottom-0 w-full p-6 border-t border-slate-700/50 glass-effect">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white shadow-lg">
+                        <span id="userInitial" class="text-lg font-semibold loading-placeholder">A</span>
+                    </div>
+                    <div class="flex-1">
+                        <h4 id="userName" class="text-sm font-semibold text-white loading-placeholder"></h4>
+                        <p id="userEmail" class="text-xs text-slate-400 loading-placeholder"></p>
+                    </div>
+                    <button class="w-8 h-8 rounded-lg hover:bg-slate-800/50 flex items-center justify-center text-slate-400 transition-colors">
+                        <i class="fas fa-chevron-down text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content-wrapper">
+            <div class="max-w-7xl mx-auto p-8 space-y-8">
+                <!-- Header -->
+                <div class="glass-effect rounded-2xl p-8">
+                    <h1 class="text-3xl font-bold text-white mb-4">Past Events</h1>
+                    <p class="text-slate-400">View and manage your completed meetings</p>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Total Events -->
+                    <div class="dashboard-card p-6 rounded-xl">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                                <i class="fas fa-calendar-check text-white text-xl"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-white">Total Events</h3>
+                        </div>
+                        <p id="totalPastEvents" class="text-3xl font-bold stat-value">0</p>
+                    </div>
+
+                    <!-- Total Duration -->
+                    <div class="dashboard-card p-6 rounded-xl">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+                                <i class="fas fa-clock text-white text-xl"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-white">Total Duration</h3>
+                        </div>
+                        <p id="totalDuration" class="text-3xl font-bold stat-value">0 mins</p>
+                    </div>
+
+                    <!-- Average Duration -->
+                    <div class="dashboard-card p-6 rounded-xl">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                                <i class="fas fa-chart-line text-white text-xl"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-white">Average Duration</h3>
+                        </div>
+                        <p id="averageDuration" class="text-3xl font-bold stat-value">0 mins</p>
+                    </div>
+                </div>
+
+                <!-- Past Events List -->
+                <div class="glass-effect rounded-2xl overflow-hidden">
+                    <div class="p-6 border-b border-slate-700/50">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center">
+                                    <i class="fas fa-list text-white text-xl"></i>
+                                </div>
+                                <h2 class="text-xl font-semibold text-white">Event History</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div id="pastEventsList" class="space-y-6">
+                            <!-- Past events will be dynamically inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Screen -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="text-center">
+            <div class="w-20 h-20 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 animate-spin flex items-center justify-center mb-4 mx-auto">
+                <div class="w-16 h-16 rounded-xl bg-slate-900 flex items-center justify-center">
+                    <i class="fas fa-calendar-alt text-2xl text-violet-400"></i>
+                </div>
+            </div>
+            <h2 class="text-xl font-semibold text-white mb-2">Loading Past Events</h2>
+            <p class="text-slate-400">Please wait while we fetch your data...</p>
+        </div>
+    </div>
+</body>
+</html> 
