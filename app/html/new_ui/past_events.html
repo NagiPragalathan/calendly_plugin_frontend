@@ -132,14 +132,42 @@
             min-width: 150px;
             display: inline-block;
         }
+
+        @keyframes statsLoading {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        .loading {
+            animation: statsLoading 1s infinite;
+        }
+
+        .stat-value {
+            transition: all 0.3s ease;
+        }
     </style>
     <script>
+        let allEvents = [];
+        let filteredEvents = [];
+        let isDataLoaded = false;
+
         document.addEventListener('DOMContentLoaded', function() {
             // Show loading screen initially
             const loadingOverlay = document.getElementById('loadingOverlay');
             loadingOverlay.style.display = 'flex';
 
             // Load user data first
+            loadUserData();
+
+            // Initialize search and filters
+            initializeSearchAndFilters();
+
+            // Load and display past events immediately
+            loadAndDisplayPastEvents();
+        });
+
+        function loadUserData() {
             const userDataString = localStorage.getItem('calendly_current_user');
             if (userDataString) {
                 try {
@@ -151,15 +179,22 @@
                     console.error('Error parsing user data:', error);
                 }
             }
+        }
 
-            // Load past events
+        function loadAndDisplayPastEvents() {
             const pastEventsData = localStorage.getItem('calendly_past_events');
             if (pastEventsData) {
                 try {
-                    const pastEvents = JSON.parse(pastEventsData);
-                    displayPastEvents(pastEvents);
-                    updateStats(pastEvents);
-                    hideLoadingScreen(); // Hide loading screen after data is loaded
+                    // Parse and store the events
+                    allEvents = JSON.parse(pastEventsData);
+                    filteredEvents = [...allEvents];
+
+                    // Display events immediately
+                    displayPastEvents(allEvents);
+                    updateStats(allEvents);
+                    
+                    // Hide loading screen
+                    hideLoadingScreen();
                 } catch (error) {
                     console.error('Error parsing past events:', error);
                     hideLoadingScreen('Error loading past events data');
@@ -167,9 +202,9 @@
             } else {
                 console.log('No past events found in localStorage');
                 displayNoEventsMessage();
-                hideLoadingScreen(); // Hide loading screen even if no data
+                hideLoadingScreen();
             }
-        });
+        }
 
         function updateUserInfo(user) {
             // Update user initial
@@ -210,14 +245,17 @@
                     `;
                 }
                 setTimeout(() => {
-                    loadingOverlay.style.display = 'none';
-                }, 3000);
+                    loadingOverlay.style.opacity = '0';
+                    setTimeout(() => {
+                        loadingOverlay.style.display = 'none';
+                    }, 300);
+                }, 2000);
             } else {
-                loadingOverlay.style.opacity = '0';
                 loadingOverlay.style.transition = 'opacity 0.5s ease';
+                loadingOverlay.style.opacity = '0';
+                
                 setTimeout(() => {
                     loadingOverlay.style.display = 'none';
-                    loadingOverlay.style.opacity = '1';
                 }, 500);
             }
         }
@@ -231,6 +269,7 @@
                 return;
             }
 
+            // Sort events by start time in descending order (most recent first)
             events.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
 
             const eventsHTML = events.map(event => {
@@ -258,17 +297,6 @@
                             </span>
                         </div>
                         
-                        <div class="grid grid-cols-2 gap-4 mb-4">
-                            <div class="p-4 rounded-lg bg-slate-800/50">
-                                <p class="text-sm text-slate-400 mb-1">Start Time</p>
-                                <p class="text-white">${startTime.toLocaleString()}</p>
-                            </div>
-                            <div class="p-4 rounded-lg bg-slate-800/50">
-                                <p class="text-sm text-slate-400 mb-1">End Time</p>
-                                <p class="text-white">${endTime.toLocaleString()}</p>
-                            </div>
-                        </div>
-
                 ${event.location ? `
                     <div class="mt-4 p-4 rounded-lg bg-slate-800/50">
                         <div class="flex items-center justify-between">
@@ -296,7 +324,6 @@
                         </div>
                     </div>
                 ` : `
-                    <!-- If no location, show buttons at the bottom -->
                     <div class="mt-4 flex justify-end space-x-3">
                         <button onclick='showEventDetailsModal(${JSON.stringify(event).replace(/'/g, "&apos;")})' 
                                 class="px-4 py-2 bg-violet-500/10 text-violet-400 rounded-lg hover:bg-violet-500/20 transition-colors flex items-center space-x-2">
@@ -313,6 +340,17 @@
         }
 
         function updateStats(events) {
+            const statsIds = ['totalPastEvents', 'totalDuration', 'averageDuration'];
+            
+            // Add loading state
+            statsIds.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.classList.add('loading');
+                }
+            });
+
+            // Calculate new stats
             const totalEvents = events.length;
             const totalDuration = events.reduce((total, event) => {
                 const duration = (new Date(event.end_time) - new Date(event.start_time)) / (1000 * 60);
@@ -320,20 +358,46 @@
             }, 0);
             const averageDuration = totalEvents > 0 ? Math.round(totalDuration / totalEvents) : 0;
 
-            // Update stats with animation
-            const stats = {
-                'totalPastEvents': totalEvents,
-                'totalDuration': `${Math.round(totalDuration)} mins`,
-                'averageDuration': `${averageDuration} mins`
-            };
+            // Update stats with a slight delay to show animation
+            setTimeout(() => {
+                const stats = {
+                    'totalPastEvents': totalEvents,
+                    'totalDuration': `${Math.round(totalDuration)} mins`,
+                    'averageDuration': `${averageDuration} mins`
+                };
 
-            Object.entries(stats).forEach(([id, value]) => {
-                const element = document.getElementById(id);
-                if (element) {
-                    element.textContent = value;
-                    element.classList.add('stat-value');
-                }
-            });
+                Object.entries(stats).forEach(([id, value]) => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.textContent = value;
+                        element.classList.remove('loading');
+                        element.classList.add('stat-value');
+                    }
+                });
+
+                updateFilteredLabel();
+            }, 300);
+        }
+
+        function updateFilteredLabel() {
+            const hasActiveFilters = 
+                document.getElementById('searchInput').value ||
+                document.getElementById('dateFromFilter').value ||
+                document.getElementById('dateToFilter').value ||
+                document.getElementById('statusFilter').value ||
+                document.getElementById('durationFilter').value;
+
+            document.querySelectorAll('.filter-text').forEach(el => el.remove());
+
+            if (hasActiveFilters) {
+                const statsContainers = document.querySelectorAll('.stat-container');
+                statsContainers.forEach(container => {
+                    const filterText = document.createElement('span');
+                    filterText.className = 'text-sm text-slate-400 filter-text ml-2';
+                    filterText.textContent = '(Filtered)';
+                    container.appendChild(filterText);
+                });
+            }
         }
 
         function displayNoEventsMessage() {
@@ -683,6 +747,167 @@
                 modal.remove();
             }
         }
+
+        function initializeSearchAndFilters() {
+            // Search Input
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', debounce(() => applyFiltersAndSearch(), 300));
+
+            // Date Filters
+            const dateFromFilter = document.getElementById('dateFromFilter');
+            const dateToFilter = document.getElementById('dateToFilter');
+            dateFromFilter.addEventListener('change', applyFiltersAndSearch);
+            dateToFilter.addEventListener('change', applyFiltersAndSearch);
+
+            // Status Filter
+            const statusFilter = document.getElementById('statusFilter');
+            statusFilter.addEventListener('change', applyFiltersAndSearch);
+
+            // Duration Filter
+            const durationFilter = document.getElementById('durationFilter');
+            durationFilter.addEventListener('change', applyFiltersAndSearch);
+
+            // Clear Filters
+            const clearFiltersBtn = document.getElementById('clearFilters');
+            clearFiltersBtn.addEventListener('click', clearAllFilters);
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function applyFiltersAndSearch() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const dateFrom = document.getElementById('dateFromFilter').value;
+            const dateTo = document.getElementById('dateToFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const duration = document.getElementById('durationFilter').value;
+
+            filteredEvents = allEvents.filter(event => {
+                // Search term filter
+                const searchMatch = !searchTerm || 
+                    event.name.toLowerCase().includes(searchTerm) ||
+                    (event.location && event.location.type.toLowerCase().includes(searchTerm)) ||
+                    event.event_memberships.some(member => 
+                        member.user_name.toLowerCase().includes(searchTerm) ||
+                        member.user_email.toLowerCase().includes(searchTerm)
+                    );
+
+                // Date range filter
+                const eventDate = new Date(event.start_time);
+                const dateFromMatch = !dateFrom || eventDate >= new Date(dateFrom);
+                const dateToMatch = !dateTo || eventDate <= new Date(dateTo);
+
+                // Status filter
+                const statusMatch = !status || event.status === status;
+
+                // Duration filter
+                const eventDuration = (new Date(event.end_time) - new Date(event.start_time)) / (1000 * 60);
+                const durationMatch = !duration || eventDuration === parseInt(duration);
+
+                return searchMatch && dateFromMatch && dateToMatch && statusMatch && durationMatch;
+            });
+
+            updateActiveFilters();
+            displayPastEvents(filteredEvents);
+            updateStats(filteredEvents);
+        }
+
+        function updateActiveFilters() {
+            const activeFiltersContainer = document.getElementById('activeFilters');
+            const activeFilters = [];
+
+            // Check each filter
+            const searchTerm = document.getElementById('searchInput').value;
+            const dateFrom = document.getElementById('dateFromFilter').value;
+            const dateTo = document.getElementById('dateToFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const duration = document.getElementById('durationFilter').value;
+
+            if (searchTerm) {
+                activeFilters.push({
+                    type: 'search',
+                    label: `Search: "${searchTerm}"`,
+                    value: searchTerm
+                });
+            }
+
+            if (dateFrom || dateTo) {
+                activeFilters.push({
+                    type: 'date',
+                    label: `Date: ${dateFrom || 'Any'} to ${dateTo || 'Any'}`,
+                    value: 'date'
+                });
+            }
+
+            if (status) {
+                activeFilters.push({
+                    type: 'status',
+                    label: `Status: ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+                    value: status
+                });
+            }
+
+            if (duration) {
+                activeFilters.push({
+                    type: 'duration',
+                    label: `Duration: ${duration} minutes`,
+                    value: duration
+                });
+            }
+
+            // Generate filter tags HTML
+            activeFiltersContainer.innerHTML = activeFilters.map(filter => `
+                <div class="px-3 py-1 bg-violet-500/10 text-violet-400 rounded-lg flex items-center space-x-2">
+                    <span>${filter.label}</span>
+                    <button onclick="removeFilter('${filter.type}', '${filter.value}')" 
+                            class="hover:text-violet-300 transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            // Show/hide the container based on whether there are active filters
+            activeFiltersContainer.style.display = activeFilters.length ? 'flex' : 'none';
+        }
+
+        function removeFilter(type, value) {
+            switch (type) {
+                case 'search':
+                    document.getElementById('searchInput').value = '';
+                    break;
+                case 'date':
+                    document.getElementById('dateFromFilter').value = '';
+                    document.getElementById('dateToFilter').value = '';
+                    break;
+                case 'status':
+                    document.getElementById('statusFilter').value = '';
+                    break;
+                case 'duration':
+                    document.getElementById('durationFilter').value = '';
+                    break;
+            }
+            applyFiltersAndSearch();
+        }
+
+        function clearAllFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('dateFromFilter').value = '';
+            document.getElementById('dateToFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('durationFilter').value = '';
+            
+            filteredEvents = [...allEvents];
+            applyFiltersAndSearch();
+        }
     </script>
 </head>
 <body class="bg-slate-900 text-white">
@@ -753,6 +978,77 @@
                 <div class="glass-effect rounded-2xl p-8">
                     <h1 class="text-3xl font-bold text-white mb-4">Past Events</h1>
                     <p class="text-slate-400">View and manage your completed meetings</p>
+                </div>
+
+                <!-- Search and Filter Section -->
+                <div class="glass-effect rounded-2xl p-6 mb-8">
+                    <div class="flex flex-col lg:flex-row gap-6">
+                        <!-- Search Bar -->
+                        <div class="flex-1">
+                            <div class="relative">
+                                <input type="text" 
+                                       id="searchInput" 
+                                       placeholder="Search events by name, location, or member..." 
+                                       class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 pl-12 text-white placeholder-slate-400 focus:outline-none focus:border-violet-500/50">
+                                <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                            </div>
+                        </div>
+
+                        <!-- Filter Options -->
+                        <div class="flex flex-wrap gap-4">
+                            <!-- Date Range Filter -->
+                            <div class="flex items-center space-x-3">
+                                <div class="relative">
+                                    <input type="date" 
+                                           id="dateFromFilter" 
+                                           class="bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500/50">
+                                    <label class="absolute -top-2 left-3 text-xs text-slate-400 bg-slate-900 px-1">From</label>
+                                </div>
+                                <div class="relative">
+                                    <input type="date" 
+                                           id="dateToFilter" 
+                                           class="bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500/50">
+                                    <label class="absolute -top-2 left-3 text-xs text-slate-400 bg-slate-900 px-1">To</label>
+                                </div>
+                            </div>
+
+                            <!-- Status Filter -->
+                            <div class="relative">
+                                <select id="statusFilter" 
+                                        class="bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white appearance-none focus:outline-none focus:border-violet-500/50 pr-10">
+                                    <option value="">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="pending">Pending</option>
+                                </select>
+                                <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                            </div>
+
+                            <!-- Duration Filter -->
+                            <div class="relative">
+                                <select id="durationFilter" 
+                                        class="bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white appearance-none focus:outline-none focus:border-violet-500/50 pr-10">
+                                    <option value="">All Durations</option>
+                                    <option value="15">15 minutes</option>
+                                    <option value="30">30 minutes</option>
+                                    <option value="45">45 minutes</option>
+                                    <option value="60">60 minutes</option>
+                                </select>
+                                <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                            </div>
+
+                            <!-- Clear Filters Button -->
+                            <button id="clearFilters" 
+                                    class="px-4 py-3 bg-slate-700/50 text-slate-300 rounded-xl hover:bg-slate-700 transition-colors flex items-center space-x-2">
+                                <i class="fas fa-times"></i>
+                                <span>Clear Filters</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Active Filters Display -->
+                    <div id="activeFilters" class="mt-4 flex flex-wrap gap-2">
+                        <!-- Active filters will be displayed here -->
+                    </div>
                 </div>
 
                 <!-- Stats Grid -->
@@ -826,4 +1122,4 @@
         </div>
     </div>
 </body>
-</html> 
+</html>
