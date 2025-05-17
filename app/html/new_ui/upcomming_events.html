@@ -871,6 +871,33 @@
                     </div>
                 </div>
 
+                <!-- Chart Section -->
+                <div class="glass-effect rounded-2xl p-6 mb-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                                <i class="fas fa-chart-line text-white"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-white">Events Overview</h3>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button onclick="updateChartView('week')" 
+                                    id="weekViewBtn"
+                                    class="px-4 py-2 bg-slate-800/50 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors">
+                                Week View
+                            </button>
+                            <button onclick="updateChartView('month')" 
+                                    id="monthViewBtn"
+                                    class="px-4 py-2 bg-slate-800/50 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors">
+                                Month View
+                            </button>
+                        </div>
+                    </div>
+                    <div class="w-full h-[300px]">
+                        <canvas id="eventsChart"></canvas>
+                    </div>
+                </div>
+
                 <!-- Upcoming Events List -->
                 <div class="glass-effect rounded-2xl overflow-hidden">
                     <div class="p-6 border-b border-slate-700/50">
@@ -1330,6 +1357,168 @@
             closeEventDetailsModal();
         }
     });
+    </script>
+
+    <!-- Add this script after your existing scripts -->
+    <script>
+        let eventsChart = null;
+
+        function initializeChart() {
+            const ctx = document.getElementById('eventsChart').getContext('2d');
+            
+            // Create gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(139, 92, 246, 0.5)');  // violet-500
+            gradient.addColorStop(1, 'rgba(244, 114, 182, 0.1)'); // pink-500
+
+            eventsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Upcoming Events',
+                        data: [],
+                        fill: true,
+                        backgroundColor: gradient,
+                        borderColor: '#8b5cf6', // violet-500
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointBackgroundColor: '#f472b6', // pink-500
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                            titleColor: '#fff',
+                            bodyColor: '#94a3b8',
+                            padding: 12,
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            displayColors: false,
+                            callbacks: {
+                                title: (items) => {
+                                    return items[0].label;
+                                },
+                                label: (item) => {
+                                    return `${item.raw} events`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChartView(view = 'week') {
+            if (!allEvents || !allEvents.length) return;
+
+            // Set active button state
+            document.getElementById('weekViewBtn').classList.toggle('bg-violet-500', view === 'week');
+            document.getElementById('monthViewBtn').classList.toggle('bg-violet-500', view === 'month');
+
+            const today = new Date();
+            const eventCounts = new Map();
+            
+            if (view === 'week') {
+                // Get the next 7 days
+                for (let i = 0; i < 7; i++) {
+                    const date = new Date(today);
+                    date.setDate(today.getDate() + i);
+                    eventCounts.set(date.toDateString(), 0);
+                }
+
+                // Count events for each day
+                allEvents.forEach(event => {
+                    const eventDate = new Date(event.start_time);
+                    const dateStr = eventDate.toDateString();
+                    if (eventCounts.has(dateStr)) {
+                        eventCounts.set(dateStr, eventCounts.get(dateStr) + 1);
+                    }
+                });
+
+                // Update chart data
+                eventsChart.data.labels = Array.from(eventCounts.keys()).map(date => 
+                    new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                );
+            } else {
+                // Get the next 30 days grouped by week
+                const weekCounts = new Map();
+                for (let i = 0; i < 4; i++) {
+                    const weekStart = new Date(today);
+                    weekStart.setDate(today.getDate() + (i * 7));
+                    const weekEnd = new Date(weekStart);
+                    weekEnd.setDate(weekStart.getDate() + 6);
+                    weekCounts.set(
+                        `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+                        0
+                    );
+                }
+
+                // Count events for each week
+                allEvents.forEach(event => {
+                    const eventDate = new Date(event.start_time);
+                    const weekNum = Math.floor((eventDate - today) / (7 * 24 * 60 * 60 * 1000));
+                    if (weekNum >= 0 && weekNum < 4) {
+                        const weekStart = new Date(today);
+                        weekStart.setDate(today.getDate() + (weekNum * 7));
+                        const weekEnd = new Date(weekStart);
+                        weekEnd.setDate(weekStart.getDate() + 6);
+                        const weekKey = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                        weekCounts.set(weekKey, weekCounts.get(weekKey) + 1);
+                    }
+                });
+
+                // Update chart data
+                eventsChart.data.labels = Array.from(weekCounts.keys());
+                eventCounts = weekCounts;
+            }
+
+            eventsChart.data.datasets[0].data = Array.from(eventCounts.values());
+            eventsChart.update();
+        }
+
+        // Initialize chart when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize the chart after the existing initialization
+            initializeChart();
+            
+            // Update the loadAndDisplayUpcomingEvents function to include chart update
+            const originalLoadAndDisplay = loadAndDisplayUpcomingEvents;
+            loadAndDisplayUpcomingEvents = function() {
+                originalLoadAndDisplay();
+                updateChartView('week'); // Default to week view
+            };
+        });
     </script>
 </body>
 </html>
