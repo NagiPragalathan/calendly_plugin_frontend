@@ -135,6 +135,12 @@
                     displayUpcomingEvents(allEvents);
                     updateStats(allEvents);
                     
+                    // Initialize and update chart after data is loaded
+                    if (!eventsChart) {
+                        initializeChart();
+                    }
+                    updateChartView('week');
+                    
                     // Hide loading screen
                     hideLoadingScreen();
                 } catch (error) {
@@ -1506,19 +1512,6 @@
             eventsChart.data.datasets[0].data = Array.from(eventCounts.values());
             eventsChart.update();
         }
-
-        // Initialize chart when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize the chart after the existing initialization
-            initializeChart();
-            
-            // Update the loadAndDisplayUpcomingEvents function to include chart update
-            const originalLoadAndDisplay = loadAndDisplayUpcomingEvents;
-            loadAndDisplayUpcomingEvents = function() {
-                originalLoadAndDisplay();
-                updateChartView('week'); // Default to week view
-            };
-        });
     </script>
 </body>
 </html>
