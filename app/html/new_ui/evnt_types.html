@@ -210,13 +210,17 @@
                     <!-- Event Types Distribution Chart -->
                     <div class="dashboard-card p-6 rounded-xl">
                         <h3 class="text-lg font-semibold text-white mb-4">Event Types Distribution</h3>
-                        <canvas id="eventTypesChart" height="200"></canvas>
+                        <div style="height: 300px; width: 100%; position: relative;">
+                            <canvas id="eventTypesChart"></canvas>
+                        </div>
                     </div>
                     
                     <!-- Duration Distribution Chart -->
                     <div class="dashboard-card p-6 rounded-xl">
                         <h3 class="text-lg font-semibold text-white mb-4">Duration Distribution</h3>
-                        <canvas id="durationChart" height="200"></canvas>
+                        <div style="height: 300px; width: 100%; position: relative;">
+                            <canvas id="durationChart"></canvas>
+                        </div>
                     </div>
                 </div>
 
@@ -588,11 +592,20 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
+                    aspectRatio: 1,
+                    layout: {
+                        padding: 20
+                    },
                     plugins: {
                         legend: {
                             position: 'bottom',
                             labels: {
-                                color: 'rgb(226, 232, 240)' // Slate-200
+                                color: 'rgb(226, 232, 240)',
+                                padding: 20,
+                                font: {
+                                    size: 12
+                                }
                             }
                         }
                     }
@@ -616,27 +629,49 @@
                         data: Object.values(durationGroups),
                         backgroundColor: 'rgba(139, 92, 246, 0.8)', // Violet
                         borderColor: 'rgba(139, 92, 246, 1)',
-                        borderWidth: 1
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        maxBarThickness: 40
                     }]
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
+                    aspectRatio: 1,
+                    layout: {
+                        padding: 20
+                    },
                     scales: {
                         y: {
                             beginAtZero: true,
                             ticks: {
                                 color: 'rgb(226, 232, 240)',
-                                stepSize: 1
+                                stepSize: 1,
+                                padding: 10,
+                                font: {
+                                    size: 12
+                                }
                             },
                             grid: {
-                                color: 'rgba(226, 232, 240, 0.1)'
+                                color: 'rgba(226, 232, 240, 0.1)',
+                                drawBorder: false
+                            },
+                            border: {
+                                display: false
                             }
                         },
                         x: {
                             ticks: {
-                                color: 'rgb(226, 232, 240)'
+                                color: 'rgb(226, 232, 240)',
+                                padding: 10,
+                                font: {
+                                    size: 12
+                                }
                             },
                             grid: {
+                                display: false
+                            },
+                            border: {
                                 display: false
                             }
                         }
@@ -644,6 +679,17 @@
                     plugins: {
                         legend: {
                             display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                            titleFont: {
+                                size: 14
+                            },
+                            bodyFont: {
+                                size: 13
+                            },
+                            padding: 12,
+                            cornerRadius: 8
                         }
                     }
                 }
