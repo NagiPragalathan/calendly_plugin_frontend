@@ -169,6 +169,33 @@
                     <p class="text-slate-400">Manage your meeting types and availability</p>
                 </div>
 
+                <!-- Add this after the Header section and before Stats Grid -->
+                <div class="glass-effect rounded-2xl p-6 mb-8">
+                    <div class="flex items-center space-x-4">
+                        <div class="relative flex-1">
+                            <input type="text" 
+                                   id="eventTypeSearch" 
+                                   placeholder="Search event types..." 
+                                   class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 pl-12 text-white placeholder-slate-400 focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20">
+                            <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <select id="eventTypeFilter" class="bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20">
+                                <option value="all">All Types</option>
+                                <option value="active">Active Only</option>
+                                <option value="inactive">Inactive Only</option>
+                            </select>
+                            <select id="durationFilter" class="bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20">
+                                <option value="all">All Durations</option>
+                                <option value="15">15 minutes</option>
+                                <option value="30">30 minutes</option>
+                                <option value="60">60 minutes</option>
+                                <option value="60plus">60+ minutes</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Stats Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <!-- Total Event Types -->
@@ -695,6 +722,103 @@
                 }
             });
         }
+
+        // Add these new functions
+        function initializeSearch() {
+            const searchInput = document.getElementById('eventTypeSearch');
+            const typeFilter = document.getElementById('eventTypeFilter');
+            const durationFilter = document.getElementById('durationFilter');
+
+            // Debounce function to limit how often the search is performed
+            function debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
+
+            // Function to perform the search and filtering
+            const performSearch = debounce(() => {
+                const searchTerm = searchInput.value.toLowerCase();
+                const typeFilterValue = typeFilter.value;
+                const durationFilterValue = durationFilter.value;
+
+                const eventCards = document.querySelectorAll('#eventTypesList .dashboard-card');
+                let visibleCount = 0;
+
+                eventCards.forEach(card => {
+                    const title = card.querySelector('h3').textContent.toLowerCase();
+                    const duration = parseInt(card.querySelector('.text-sm.text-slate-400').textContent);
+                    const isActive = card.querySelector('.text-emerald-400') !== null;
+
+                    // Check if card matches all criteria
+                    const matchesSearch = title.includes(searchTerm);
+                    const matchesType = typeFilterValue === 'all' || 
+                                      (typeFilterValue === 'active' && isActive) || 
+                                      (typeFilterValue === 'inactive' && !isActive);
+                    const matchesDuration = durationFilterValue === 'all' || 
+                                          (durationFilterValue === '15' && duration <= 15) ||
+                                          (durationFilterValue === '30' && duration > 15 && duration <= 30) ||
+                                          (durationFilterValue === '60' && duration > 30 && duration <= 60) ||
+                                          (durationFilterValue === '60plus' && duration > 60);
+
+                    if (matchesSearch && matchesType && matchesDuration) {
+                        card.style.display = 'block';
+                        visibleCount++;
+                        // Add fade-in animation
+                        card.style.opacity = '0';
+                        card.style.transform = 'translateY(10px)';
+                        setTimeout(() => {
+                            card.style.transition = 'all 0.3s ease';
+                            card.style.opacity = '1';
+                            card.style.transform = 'translateY(0)';
+                        }, 50);
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                // Show no results message if needed
+                const noResultsMsg = document.getElementById('noResultsMessage');
+                if (visibleCount === 0) {
+                    if (!noResultsMsg) {
+                        const msg = document.createElement('div');
+                        msg.id = 'noResultsMessage';
+                        msg.className = 'text-center py-8 text-slate-400';
+                        msg.innerHTML = `
+                            <div class="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-search text-2xl"></i>
+                            </div>
+                            <h4 class="text-lg font-medium text-white mb-2">No Results Found</h4>
+                            <p class="text-slate-400">Try adjusting your search or filters</p>
+                        `;
+                        document.getElementById('eventTypesList').appendChild(msg);
+                    }
+                } else if (noResultsMsg) {
+                    noResultsMsg.remove();
+                }
+            }, 300);
+
+            // Add event listeners
+            searchInput.addEventListener('input', performSearch);
+            typeFilter.addEventListener('change', performSearch);
+            durationFilter.addEventListener('change', performSearch);
+
+            // Initialize search on page load
+            performSearch();
+        }
+
+        // Modify your existing updateEventTypes function to call initializeSearch
+        const originalUpdateEventTypes = updateEventTypes;
+        updateEventTypes = function(data) {
+            originalUpdateEventTypes(data);
+            initializeSearch();
+        };
     </script>
 </body>
 </html>
