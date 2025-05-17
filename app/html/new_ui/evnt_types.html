@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="../../js/lib/jquery-3.3.1.min.js"></script>
     <script src="../../js/lib/ZohoEmbededAppSDK.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -201,6 +202,21 @@
                             <h3 class="text-lg font-semibold text-white">Average Duration</h3>
                         </div>
                         <p id="avgDuration" class="text-3xl font-bold stat-value">30 min</p>
+                    </div>
+                </div>
+
+                <!-- Add this after the Stats Grid section and before Event Types List -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <!-- Event Types Distribution Chart -->
+                    <div class="dashboard-card p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold text-white mb-4">Event Types Distribution</h3>
+                        <canvas id="eventTypesChart" height="200"></canvas>
+                    </div>
+                    
+                    <!-- Duration Distribution Chart -->
+                    <div class="dashboard-card p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold text-white mb-4">Duration Distribution</h3>
+                        <canvas id="durationChart" height="200"></canvas>
                     </div>
                 </div>
 
@@ -459,6 +475,9 @@
                     }
                 });
             });
+
+            // Add this at the end of the function
+            initializeCharts(data);
         }
 
         function updateUserInfo(user) {
@@ -539,6 +558,96 @@
             // This would typically make an API call to update the status
             console.log(`Toggling status for ${eventUri} from ${currentStatus} to ${!currentStatus}`);
             // After successful API call, you would reload the data
+        }
+
+        function initializeCharts(data) {
+            const types = data.collection || [];
+            
+            // Event Types Distribution Chart
+            const activeVsInactive = {
+                active: types.filter(type => type.active).length,
+                inactive: types.filter(type => !type.active).length
+            };
+
+            new Chart(document.getElementById('eventTypesChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Active', 'Inactive'],
+                    datasets: [{
+                        data: [activeVsInactive.active, activeVsInactive.inactive],
+                        backgroundColor: [
+                            'rgba(16, 185, 129, 0.8)', // Emerald
+                            'rgba(239, 68, 68, 0.8)'   // Red
+                        ],
+                        borderColor: [
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(239, 68, 68, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: 'rgb(226, 232, 240)' // Slate-200
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Duration Distribution Chart
+            const durationGroups = {
+                '15min': types.filter(type => type.duration <= 15).length,
+                '30min': types.filter(type => type.duration > 15 && type.duration <= 30).length,
+                '60min': types.filter(type => type.duration > 30 && type.duration <= 60).length,
+                '60min+': types.filter(type => type.duration > 60).length
+            };
+
+            new Chart(document.getElementById('durationChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(durationGroups),
+                    datasets: [{
+                        label: 'Number of Event Types',
+                        data: Object.values(durationGroups),
+                        backgroundColor: 'rgba(139, 92, 246, 0.8)', // Violet
+                        borderColor: 'rgba(139, 92, 246, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: 'rgb(226, 232, 240)',
+                                stepSize: 1
+                            },
+                            grid: {
+                                color: 'rgba(226, 232, 240, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: 'rgb(226, 232, 240)'
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
         }
     </script>
 </body>
