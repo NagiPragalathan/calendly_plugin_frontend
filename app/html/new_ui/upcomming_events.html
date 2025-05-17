@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upcoming Events - Calendly</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../../js/lib/jquery-3.3.1.min.js"></script>
+    <script src="../../js/lib/ZohoEmbededAppSDK.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Reusing the same styles from past_events.html */
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #0f172a;
+        }
+        .dashboard-card {
+            transition: all 0.3s ease;
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .dashboard-card:hover {
+            transform: translateY(-2px);
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .glass-effect {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        /* ... (keeping all the same styles from past_events.html) ... */
+        .nav-link {
+            position: relative;
+            overflow: hidden;
+        }
+        .nav-link::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, rgba(139, 92, 246, 0.1), rgba(244, 114, 182, 0.1));
+            transition: width 0.3s ease;
+        }
+        .nav-link:hover::before {
+            width: 100%;
+        }
+        .stat-value {
+            background: linear-gradient(135deg, #8b5cf6, #f472b6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .main-content-wrapper {
+            padding-left: 18rem;
+            width: 100%;
+            min-height: 100vh;
+        }
+        @media (max-width: 1024px) {
+            .main-content-wrapper {
+                padding-left: 0;
+                margin-top: 4rem;
+            }
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: fixed;
+                top: 0;
+                z-index: 50;
+            }
+        }
+        .loading-placeholder {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(90deg, rgba(148, 163, 184, 0.1) 25%, rgba(148, 163, 184, 0.2) 50%, rgba(148, 163, 184, 0.1) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 0.375rem;
+        }
+    </style>
+    <script>
+        let allEvents = [];
+        let filteredEvents = [];
+        let isDataLoaded = false;
+
+        console.log('Upcoming Events Data:', localStorage.getItem('calendly_upcoming_events'));
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Show loading screen initially
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.display = 'flex';
+
+            // Load user data first
+            loadUserData();
+
+            // Initialize search and filters
+            initializeSearchAndFilters();
+
+            // Load and display upcoming events immediately
+            loadAndDisplayUpcomingEvents();
+        });
+
+        function loadUserData() {
+            const userDataString = localStorage.getItem('calendly_current_user');
+            if (userDataString) {
+                try {
+                    const userData = JSON.parse(userDataString);
+                    if (userData.resource) {
+                        updateUserInfo(userData.resource);
+                    }
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
+                }
+            }
+        }
+
+        function loadAndDisplayUpcomingEvents() {
+            console.log('Loading upcoming events...');
+            const upcomingEventsData = localStorage.getItem('calendly_upcoming_events');
+            console.log('Raw data from localStorage:', upcomingEventsData);
+            
+            if (upcomingEventsData) {
+                try {
+                    // Parse and store the events
+                    allEvents = JSON.parse(upcomingEventsData);
+                    console.log('Parsed events:', allEvents);
+                    filteredEvents = [...allEvents];
+
+                    // Display events immediately
+                    displayUpcomingEvents(allEvents);
+                    updateStats(allEvents);
+                    
+                    // Hide loading screen
+                    hideLoadingScreen();
+                } catch (error) {
+                    console.error('Error parsing upcoming events:', error);
+                    hideLoadingScreen('Error loading upcoming events data');
+                }
+            } else {
+                console.log('No upcoming events found in localStorage');
+                displayNoEventsMessage();
+                hideLoadingScreen();
+            }
+        }
+
+        function displayUpcomingEvents(events) {
+            const container = document.getElementById('upcomingEventsList');
+            if (!container) return;
+
+            if (!events || events.length === 0) {
+                displayNoEventsMessage();
+                return;
+            }
+
+            // Sort events by start time in ascending order (closest first)
+            events.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+
+            const eventsHTML = events.map(event => {
+                const startTime = new Date(event.start_time);
+                const endTime = new Date(event.end_time);
+                const duration = (endTime - startTime) / (1000 * 60);
+                const timeUntilEvent = getTimeUntilEvent(startTime);
+
+                return `
+                    <div class="dashboard-card p-6 rounded-xl">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+                                    <i class="fas fa-calendar-alt text-white text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-white">${event.name}</h3>
+                                    <p class="text-slate-400 text-sm">${duration} minutes</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-end">
+                                <span class="px-3 py-1 text-sm ${
+                                    timeUntilEvent.includes('Starting soon') ? 'text-amber-400 bg-amber-500/10' : 
+                                    'text-emerald-400 bg-emerald-500/10'
+                                } rounded-full mb-2">
+                                    ${timeUntilEvent}
+                                </span>
+                                <span class="text-sm text-slate-400">
+                                    ${startTime.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        ${event.location ? `
+                            <div class="mt-4 p-4 rounded-lg bg-slate-800/50">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-slate-400 mb-1">Meeting Location</p>
+                                        <p class="text-white">${event.location.type.replace(/_/g, ' ').split(' ').map(word => 
+                                            word.charAt(0).toUpperCase() + word.slice(1)
+                                        ).join(' ')}</p>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        ${event.location.join_url ? `
+                                            <a href="${event.location.join_url}" 
+                                               target="_blank"
+                                               class="px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-colors flex items-center space-x-2">
+                                                <i class="fas fa-video"></i>
+                                                <span>Join Meeting</span>
+                                            </a>
+                                        ` : ''}
+                                        <button onclick='showEventDetailsModal(${JSON.stringify(event).replace(/'/g, "&apos;")})' 
+                                                class="px-4 py-2 bg-violet-500/10 text-violet-400 rounded-lg hover:bg-violet-500/20 transition-colors flex items-center space-x-2">
+                                            <i class="fas fa-info-circle"></i>
+                                            <span>View Details</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = eventsHTML;
+        }
+
+        function getTimeUntilEvent(startTime) {
+            const now = new Date();
+            const timeDiff = startTime - now;
+            const minutesUntil = Math.floor(timeDiff / (1000 * 60));
+            const hoursUntil = Math.floor(minutesUntil / 60);
+            const daysUntil = Math.floor(hoursUntil / 24);
+
+            if (minutesUntil < 0) {
+                return 'In Progress';
+            } else if (minutesUntil < 30) {
+                return 'Starting soon';
+            } else if (hoursUntil < 1) {
+                return `In ${minutesUntil} minutes`;
+            } else if (daysUntil < 1) {
+                return `In ${hoursUntil} hours`;
+            } else {
+                return `In ${daysUntil} days`;
+            }
+        }
+
+        function displayNoEventsMessage() {
+            const container = document.getElementById('upcomingEventsList');
+            if (!container) return;
+
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-calendar text-3xl text-slate-400"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-white mb-2">No Upcoming Events</h3>
+                    <p class="text-slate-400">You don't have any scheduled meetings yet.</p>
+                </div>
+            `;
+        }
+
+        function updateStats(events) {
+            // Update total upcoming events
+            const totalEvents = events.length;
+            document.getElementById('totalUpcomingEvents').textContent = totalEvents;
+
+            // Update events today
+            const today = new Date();
+            const eventsToday = events.filter(event => {
+                const eventDate = new Date(event.start_time);
+                return eventDate.toDateString() === today.toDateString();
+            }).length;
+            document.getElementById('eventsToday').textContent = eventsToday;
+
+            // Update next event in
+            if (events.length > 0) {
+                const nextEvent = events[0]; // Events are already sorted by start time
+                const timeUntil = getTimeUntilEvent(new Date(nextEvent.start_time));
+                document.getElementById('nextEventIn').textContent = timeUntil;
+            }
+        }
+
+        function initializeSearchAndFilters() {
+            // Search Input
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', debounce(() => applyFiltersAndSearch(), 300));
+
+            // Status Filter
+            const statusFilter = document.getElementById('statusFilter');
+            statusFilter.addEventListener('change', applyFiltersAndSearch);
+
+            // Duration Filter
+            const durationFilter = document.getElementById('durationFilter');
+            durationFilter.addEventListener('change', applyFiltersAndSearch);
+
+            // Clear Filters
+            const clearFiltersBtn = document.getElementById('clearFilters');
+            clearFiltersBtn.addEventListener('click', clearAllFilters);
+        }
+
+        function applyFiltersAndSearch() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+            const duration = document.getElementById('durationFilter').value;
+            const dateFrom = document.getElementById('dateFromFilter').value;
+            const dateTo = document.getElementById('dateToFilter').value;
+
+            filteredEvents = allEvents.filter(event => {
+                // Search term filter
+                const searchMatch = !searchTerm || 
+                    event.name.toLowerCase().includes(searchTerm) ||
+                    (event.location && event.location.type.toLowerCase().includes(searchTerm)) ||
+                    event.event_memberships.some(member => 
+                        member.user_name.toLowerCase().includes(searchTerm) ||
+                        member.user_email.toLowerCase().includes(searchTerm)
+                    );
+
+                // Status filter
+                const statusMatch = !status || event.status === status;
+
+                // Duration filter
+                const eventDuration = (new Date(event.end_time) - new Date(event.start_time)) / (1000 * 60);
+                const durationMatch = !duration || eventDuration === parseInt(duration);
+
+                // Date range filter
+                const eventDate = new Date(event.start_time);
+                const dateFromMatch = !dateFrom || eventDate >= new Date(dateFrom);
+                const dateToMatch = !dateTo || eventDate <= new Date(dateTo);
+
+                return searchMatch && statusMatch && durationMatch && dateFromMatch && dateToMatch;
+            });
+
+            displayUpcomingEvents(filteredEvents);
+            updateStats(filteredEvents);
+            updateActiveFilterTags();
+            updateFilteredCount();
+        }
+
+        function clearAllFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('durationFilter').value = '';
+            document.getElementById('dateFromFilter').value = '';
+            document.getElementById('dateToFilter').value = '';
+            
+            filteredEvents = [...allEvents];
+            applyFiltersAndSearch();
+        }
+
+        function hideLoadingScreen(errorMessage = null) {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            if (!loadingOverlay) return;
+
+            if (errorMessage) {
+                const loadingContent = loadingOverlay.querySelector('.text-center');
+                if (loadingContent) {
+                    loadingContent.innerHTML = `
+                        <div class="w-20 h-20 rounded-xl bg-red-500/20 flex items-center justify-center mb-4 mx-auto">
+                            <i class="fas fa-exclamation-triangle text-2xl text-red-400"></i>
+                        </div>
+                        <h2 class="text-xl font-semibold text-white mb-2">Error Loading Data</h2>
+                        <p class="text-red-400">${errorMessage}</p>
+                    `;
+                }
+                setTimeout(() => {
+                    loadingOverlay.style.opacity = '0';
+                    setTimeout(() => {
+                        loadingOverlay.style.display = 'none';
+                    }, 300);
+                }, 2000);
+            } else {
+                loadingOverlay.style.transition = 'opacity 0.5s ease';
+                loadingOverlay.style.opacity = '0';
+                
+                setTimeout(() => {
+                    loadingOverlay.style.display = 'none';
+                }, 500);
+            }
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function updateUserInfo(user) {
+            // Update user initial
+            const userInitial = document.getElementById('userInitial');
+            if (userInitial) {
+                userInitial.textContent = user.name.charAt(0).toUpperCase();
+                userInitial.classList.remove('loading-placeholder');
+            }
+
+            // Update user name
+            const userName = document.getElementById('userName');
+            if (userName) {
+                userName.textContent = user.name;
+                userName.classList.remove('loading-placeholder');
+            }
+
+            // Update user email
+            const userEmail = document.getElementById('userEmail');
+            if (userEmail) {
+                userEmail.textContent = user.email;
+                userEmail.classList.remove('loading-placeholder');
+            }
+        }
+
+        // Add this function to handle filter removal
+        function removeFilter(type, value) {
+            switch (type) {
+                case 'search':
+                    document.getElementById('searchInput').value = '';
+                    break;
+                case 'status':
+                    document.getElementById('statusFilter').value = '';
+                    break;
+                case 'duration':
+                    document.getElementById('durationFilter').value = '';
+                    break;
+                case 'date':
+                    document.getElementById('dateFromFilter').value = '';
+                    document.getElementById('dateToFilter').value = '';
+                    break;
+            }
+            
+            // Apply filters after removal
+            applyFiltersAndSearch();
+            
+            // Update UI
+            updateActiveFilterTags();
+            updateFilteredCount();
+        }
+
+        // Enhanced filter tag creation with improved button styling
+        function createFilterTag(label, value, type) {
+            return `
+                <div class="px-3 py-1.5 bg-violet-500/10 text-violet-400 rounded-lg flex items-center space-x-2 group hover:bg-violet-500/20 transition-colors">
+                    <span class="text-sm">${label}</span>
+                    <button onclick="removeFilter('${type}', '${value}')" 
+                            class="ml-2 w-5 h-5 rounded-full bg-violet-500/20 flex items-center justify-center hover:bg-violet-500/30 transition-colors">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
+                </div>
+            `;
+        }
+
+        // Update the applyFiltersAndSearch function
+        function applyFiltersAndSearch() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+            const duration = document.getElementById('durationFilter').value;
+            const dateFrom = document.getElementById('dateFromFilter').value;
+            const dateTo = document.getElementById('dateToFilter').value;
+
+            filteredEvents = allEvents.filter(event => {
+                // Search term filter
+                const searchMatch = !searchTerm || 
+                    event.name.toLowerCase().includes(searchTerm) ||
+                    (event.location && event.location.type.toLowerCase().includes(searchTerm)) ||
+                    event.event_memberships.some(member => 
+                        member.user_name.toLowerCase().includes(searchTerm) ||
+                        member.user_email.toLowerCase().includes(searchTerm)
+                    );
+
+                // Status filter
+                const statusMatch = !status || event.status === status;
+
+                // Duration filter
+                const eventDuration = (new Date(event.end_time) - new Date(event.start_time)) / (1000 * 60);
+                const durationMatch = !duration || eventDuration === parseInt(duration);
+
+                // Date range filter
+                const eventDate = new Date(event.start_time);
+                const dateFromMatch = !dateFrom || eventDate >= new Date(dateFrom);
+                const dateToMatch = !dateTo || eventDate <= new Date(dateTo);
+
+                return searchMatch && statusMatch && durationMatch && dateFromMatch && dateToMatch;
+            });
+
+            // Update UI
+            displayUpcomingEvents(filteredEvents);
+            updateStats(filteredEvents);
+            updateActiveFilterTags();
+            updateFilteredCount();
+        }
+
+        function updateActiveFilterTags() {
+            const activeFiltersContainer = document.getElementById('activeFilters');
+            const activeFilters = [];
+
+            // Get all active filters
+            const searchTerm = document.getElementById('searchInput').value;
+            const status = document.getElementById('statusFilter').value;
+            const duration = document.getElementById('durationFilter').value;
+            const dateFrom = document.getElementById('dateFromFilter').value;
+            const dateTo = document.getElementById('dateToFilter').value;
+
+            if (searchTerm) {
+                activeFilters.push(createFilterTag(`Search: "${searchTerm}"`, searchTerm, 'search'));
+            }
+            if (status) {
+                const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+                activeFilters.push(createFilterTag(`Status: ${statusLabel}`, status, 'status'));
+            }
+            if (duration) {
+                activeFilters.push(createFilterTag(`Duration: ${duration} min`, duration, 'duration'));
+            }
+            if (dateFrom || dateTo) {
+                const dateLabel = `Date: ${dateFrom || 'Any'} to ${dateTo || 'Any'}`;
+                activeFilters.push(createFilterTag(dateLabel, 'date', 'date'));
+            }
+
+            // Update the container
+            activeFiltersContainer.innerHTML = activeFilters.join('');
+            
+            // Show/hide the container based on whether there are active filters
+            if (activeFilters.length > 0) {
+                activeFiltersContainer.classList.remove('hidden');
+                activeFiltersContainer.classList.add('flex');
+            } else {
+                activeFiltersContainer.classList.add('hidden');
+                activeFiltersContainer.classList.remove('flex');
+            }
+        }
+
+        // Update filtered count
+        function updateFilteredCount() {
+            const count = filteredEvents.length;
+            document.getElementById('filteredCount').textContent = count;
+        }
+
+        // Add these functions to your existing JavaScript
+        function showTodayEvents() {
+            const modal = document.getElementById('todayEventsList');
+            const today = new Date();
+            
+            // Update today's date in the modal
+            document.getElementById('todayDate').textContent = today.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            // Filter today's events
+            const todayEvents = allEvents.filter(event => {
+                const eventDate = new Date(event.start_time);
+                return eventDate.toDateString() === today.toDateString();
+            });
+
+            // Sort events by start time
+            todayEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+
+            // Update events count
+            document.getElementById('todayEventsCount').textContent = todayEvents.length;
+
+            // Generate HTML for today's events
+            const eventsHTML = todayEvents.length > 0 ? todayEvents.map(event => {
+                const startTime = new Date(event.start_time);
+                const endTime = new Date(event.end_time);
+                const timeUntilEvent = getTimeUntilEvent(startTime);
+                
+                return `
+                    <div class="bg-slate-700/30 rounded-xl p-4 hover:bg-slate-700/40 transition-colors">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+                                    <i class="fas fa-calendar-alt text-white"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-white">${event.name}</h4>
+                                    <p class="text-sm text-slate-400">
+                                        ${startTime.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}
+                                    </p>
+                                </div>
+                            </div>
+                            <span class="px-3 py-1 text-sm ${
+                                timeUntilEvent.includes('Starting soon') ? 'text-amber-400 bg-amber-500/10' : 
+                                'text-emerald-400 bg-emerald-500/10'
+                            } rounded-full">
+                                ${timeUntilEvent}
+                            </span>
+                        </div>
+                        ${event.location ? `
+                            <div class="mt-3 p-3 rounded-lg bg-slate-800/50">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-slate-400">Location</p>
+                                        <p class="text-white">${event.location.type.replace(/_/g, ' ').split(' ').map(word => 
+                                            word.charAt(0).toUpperCase() + word.slice(1)
+                                        ).join(' ')}</p>
+                                    </div>
+                                    ${event.location.join_url ? `
+                                        <a href="${event.location.join_url}" 
+                                           target="_blank"
+                                           class="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-colors flex items-center space-x-2">
+                                            <i class="fas fa-video"></i>
+                                            <span>Join</span>
+                                        </a>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('') : `
+                <div class="text-center py-8">
+                    <div class="w-16 h-16 rounded-full bg-slate-700/30 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-calendar-xmark text-2xl text-slate-400"></i>
+                    </div>
+                    <h4 class="text-lg font-medium text-white mb-2">No Events Today</h4>
+                    <p class="text-slate-400">You have no scheduled meetings for today.</p>
+                </div>
+            `;
+
+            modal.innerHTML = eventsHTML;
+            document.getElementById('todayEventsModal').classList.remove('hidden');
+            document.getElementById('todayEventsModal').classList.add('flex');
+        }
+
+        function closeTodayEventsModal() {
+            const modal = document.getElementById('todayEventsModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // Add click outside to close functionality
+        document.getElementById('todayEventsModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeTodayEventsModal();
+            }
+        });
+
+        // Add escape key to close functionality
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && !document.getElementById('todayEventsModal').classList.contains('hidden')) {
+                closeTodayEventsModal();
+            }
+        });
+    </script>
+</head>
+<body class="bg-slate-900 text-white">
+    <!-- Same structure as past_events.html but with updated content -->
+    <div class="min-h-screen flex">
+        <!-- Sidebar (same as past_events.html) -->
+        <aside class="sidebar glass-effect w-72 min-h-screen fixed border-r border-slate-700/50">
+            <div class="p-6">
+                <div class="flex items-center justify-center mb-10">
+                    <h1 class="text-2xl font-bold bg-gradient-to-r from-violet-500 to-fuchsia-500 bg-clip-text text-transparent">Calendly</h1>
+                </div>
+                
+                <!-- Navigation Links -->
+                <nav class="space-y-3">
+                    <a href="dashboard.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                            <i class="fas fa-home text-white"></i>
+                        </div>
+                        <span class="font-medium">Overall</span>
+                    </a>
+                    <a href="past_events.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-500/20">
+                            <i class="fas fa-history text-white"></i>
+                        </div>
+                        <span class="font-medium">Past Events</span>
+                    </a>
+                    <a href="#" class="nav-link active flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group relative bg-slate-800/50 border border-emerald-500/20">
+                        <div class="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-emerald-400 to-teal-500 rounded-r-full"></div>
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                            <i class="fas fa-calendar text-white"></i>
+                        </div>
+                        <span class="font-medium text-emerald-400">Upcoming Events</span>
+                    </a>
+                    <a href="#" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                            <i class="fas fa-plus-circle text-white"></i>
+                        </div>
+                        <span class="font-medium">Create Appointment</span>
+                    </a>
+                    <a href="#" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                            <i class="fas fa-cog text-white"></i>
+                        </div>
+                        <span class="font-medium">Settings</span>
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- User Profile Section -->
+            <div class="absolute bottom-0 w-full p-6 border-t border-slate-700/50 glass-effect">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white shadow-lg">
+                        <span id="userInitial" class="text-lg font-semibold loading-placeholder">A</span>
+                    </div>
+                    <div class="flex-1">
+                        <h4 id="userName" class="text-sm font-semibold text-white loading-placeholder"></h4>
+                        <p id="userEmail" class="text-xs text-slate-400 loading-placeholder"></p>
+                    </div>
+                    <button class="w-8 h-8 rounded-lg hover:bg-slate-800/50 flex items-center justify-center text-slate-400 transition-colors">
+                        <i class="fas fa-chevron-down text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content-wrapper">
+            <div class="max-w-7xl mx-auto p-8 space-y-8">
+                <!-- Header -->
+                <div class="glass-effect rounded-2xl p-8">
+                    <h1 class="text-3xl font-bold text-white mb-4">Upcoming Events</h1>
+                    <p class="text-slate-400">View and manage your scheduled meetings</p>
+                </div>
+
+                <!-- Search and Filter Section -->
+                <div class="glass-effect rounded-2xl p-6 mb-8">
+                    <!-- Search and Filters Header -->
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                                <i class="fas fa-search text-white"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-white">Search & Filters</h3>
+                        </div>
+                        <button id="toggleAdvancedSearch" class="px-4 py-2 bg-slate-800/50 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors flex items-center space-x-2">
+                            <i class="fas fa-sliders-h"></i>
+                            <span>Advanced Search</span>
+                        </button>
+                    </div>
+
+                    <!-- Main Search Bar -->
+                    <div class="relative mb-6">
+                        <input type="text" 
+                               id="searchInput" 
+                               placeholder="Search events by name, location, or member..." 
+                               class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-4 pl-12 text-white placeholder-slate-400 focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20">
+                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                        <div class="absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+                            <span class="text-xs text-slate-400">Press /</span>
+                            <kbd class="px-2 py-1 bg-slate-700/50 rounded text-xs text-slate-400">⌘K</kbd>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Filters Section -->
+                    <div id="advancedFilters" class="space-y-6">
+                        <!-- Filter Categories -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <!-- Status Filter -->
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-slate-300">Status</label>
+                                <div class="relative">
+                                    <select id="statusFilter" 
+                                            class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white appearance-none focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20">
+                                        <option value="">All Status</option>
+                                        <option value="active">Active</option>
+                                        <option value="pending">Pending</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="cancelled">Cancelled</option>
+                                    </select>
+                                    <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                                </div>
+                            </div>
+
+                            <!-- Duration Filter -->
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-slate-300">Duration</label>
+                                <div class="relative">
+                                    <select id="durationFilter" 
+                                            class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white appearance-none focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20">
+                                        <option value="">All Durations</option>
+                                        <option value="15">15 minutes</option>
+                                        <option value="30">30 minutes</option>
+                                        <option value="45">45 minutes</option>
+                                        <option value="60">60 minutes</option>
+                                        <option value="custom">Custom Duration</option>
+                                    </select>
+                                    <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                                </div>
+                            </div>
+
+                            <!-- Date Range Filter -->
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-slate-300">Start Date</label>
+                                <input type="date" 
+                                       id="dateFromFilter" 
+                                       class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20">
+                            </div>
+
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-slate-300">End Date</label>
+                                <input type="date" 
+                                       id="dateToFilter" 
+                                       class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20">
+                            </div>
+                        </div>
+
+                        <!-- Active Filters -->
+                        <div id="activeFilters" class="flex flex-wrap gap-2 pt-4 border-t border-slate-700/50">
+                            <!-- Active filters will be dynamically inserted here -->
+                        </div>
+
+                        <!-- Filter Actions -->
+                        <div class="flex items-center justify-between pt-4 border-t border-slate-700/50">
+                            <div class="text-sm text-slate-400">
+                                <span id="filteredCount">0</span> results found
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <button id="clearFilters" 
+                                        class="px-4 py-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors flex items-center space-x-2">
+                                    <i class="fas fa-times"></i>
+                                    <span>Clear All</span>
+                                </button>
+                                <button id="applyFilters" 
+                                        class="px-4 py-2 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center space-x-2">
+                                    <i class="fas fa-check"></i>
+                                    <span>Apply Filters</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Total Upcoming Events -->
+                    <div class="dashboard-card p-6 rounded-xl">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+                                <i class="fas fa-calendar-check text-white text-xl"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-white">Upcoming Events</h3>
+                        </div>
+                        <p id="totalUpcomingEvents" class="text-3xl font-bold stat-value">0</p>
+                    </div>
+
+                    <!-- Events Today -->
+                    <div class="dashboard-card p-6 rounded-xl relative group">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+                                    <i class="fas fa-clock text-white text-xl"></i>
+                                </div>
+                                <h3 class="text-lg font-semibold text-white">Events Today</h3>
+                            </div>
+                            <button onclick="showTodayEvents()" 
+                                    class="px-3 py-1.5 bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 flex items-center space-x-2">
+                                <i class="fas fa-eye"></i>
+                                <span>View</span>
+                            </button>
+                        </div>
+                        <p id="eventsToday" class="text-3xl font-bold stat-value">0</p>
+                    </div>
+
+                    <!-- Next Event In -->
+                    <div class="dashboard-card p-6 rounded-xl">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                                <i class="fas fa-hourglass-half text-white text-xl"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-white">Next Event In</h3>
+                        </div>
+                        <p id="nextEventIn" class="text-3xl font-bold stat-value">--</p>
+                    </div>
+                </div>
+
+                <!-- Upcoming Events List -->
+                <div class="glass-effect rounded-2xl overflow-hidden">
+                    <div class="p-6 border-b border-slate-700/50">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+                                    <i class="fas fa-calendar-alt text-white text-xl"></i>
+                                </div>
+                                <h2 class="text-xl font-semibold text-white">Upcoming Meetings</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div id="upcomingEventsList" class="space-y-6">
+                            <!-- Upcoming events will be dynamically inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Screen (same as past_events.html) -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="text-center">
+            <div class="w-20 h-20 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 animate-spin flex items-center justify-center mb-4 mx-auto">
+                <div class="w-16 h-16 rounded-xl bg-slate-900 flex items-center justify-center">
+                    <i class="fas fa-calendar-alt text-2xl text-emerald-400"></i>
+                </div>
+            </div>
+            <h2 class="text-xl font-semibold text-white mb-2">Loading Upcoming Events</h2>
+            <p class="text-slate-400">Please wait while we fetch your data...</p>
+        </div>
+    </div>
+
+    <!-- Chart.js script (same as past_events.html) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- ... chart initialization and update functions ... -->
+
+    <!-- Add this script section after your existing scripts -->
+    <script>
+        // Toggle Advanced Search
+        document.getElementById('toggleAdvancedSearch').addEventListener('click', function() {
+            const advancedFilters = document.getElementById('advancedFilters');
+            advancedFilters.classList.toggle('hidden');
+            this.querySelector('span').textContent = advancedFilters.classList.contains('hidden') ? 'Show Filters' : 'Hide Filters';
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Command/Ctrl + K or forward slash to focus search
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k' || e.key === '/') {
+                e.preventDefault();
+                document.getElementById('searchInput').focus();
+            }
+        });
+
+        // Initialize the filters on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hide advanced filters initially
+            const advancedFilters = document.getElementById('advancedFilters');
+            advancedFilters.classList.add('hidden');
+            
+            // Initialize filtered count
+            updateFilteredCount();
+        });
+    </script>
+
+    <!-- Today's Events Modal -->
+    <div id="todayEventsModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="bg-slate-800 rounded-2xl w-full max-w-4xl mx-4 overflow-hidden shadow-2xl border border-slate-700/50">
+            <!-- Modal Header -->
+            <div class="bg-gradient-to-r from-amber-500/10 to-orange-500/10 p-6 border-b border-slate-700/50">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
+                            <i class="fas fa-calendar-day text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-semibold text-white">Today's Events</h3>
+                            <p class="text-slate-400 text-sm mt-1" id="todayDate"></p>
+                        </div>
+                    </div>
+                    <button onclick="closeTodayEventsModal()" 
+                            class="w-10 h-10 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors flex items-center justify-center text-slate-400 hover:text-white">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6 max-h-[70vh] overflow-y-auto">
+                <div id="todayEventsList" class="space-y-4">
+                    <!-- Today's events will be dynamically inserted here -->
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-6 border-t border-slate-700/50 bg-slate-800/50">
+                <div class="flex justify-between items-center">
+                    <p class="text-slate-400">
+                        <span id="todayEventsCount">0</span> events scheduled for today
+                    </p>
+                    <button onclick="closeTodayEventsModal()" 
+                            class="px-6 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Details Modal -->
+    <div id="eventDetailsModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="bg-slate-800 rounded-2xl w-full max-w-5xl mx-4 overflow-hidden shadow-2xl border border-slate-700/50">
+            <!-- Modal Header with gradient background -->
+            <div class="bg-gradient-to-r from-violet-500/10 via-fuchsia-500/10 to-pink-500/10 p-8 border-b border-slate-700/50">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-5">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                            <i class="fas fa-calendar-alt text-white text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 id="eventModalTitle" class="text-3xl font-semibold text-white mb-2"></h3>
+                            <div class="flex items-center space-x-3">
+                                <p id="eventModalStatus" class="text-sm px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 inline-flex items-center space-x-2">
+                                    <i class="fas fa-circle text-xs"></i>
+                                    <span></span>
+                                </p>
+                                <p id="eventModalDuration" class="text-sm text-slate-400"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="closeEventDetailsModal()" 
+                            class="w-12 h-12 rounded-xl bg-slate-700/50 hover:bg-slate-700 transition-colors flex items-center justify-center text-slate-400 hover:text-white">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Content with two columns -->
+            <div class="p-8 max-h-[70vh] overflow-y-auto">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Left Column - Main Details -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <!-- Time Details -->
+                        <div class="bg-slate-700/30 rounded-xl p-6">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                    <i class="fas fa-clock text-blue-400"></i>
+                                </div>
+                                <h4 class="text-lg font-semibold text-white">Time Information</h4>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="space-y-1">
+                                    <p class="text-sm text-slate-400">Start Time</p>
+                                    <p id="eventModalStartTime" class="text-white font-medium"></p>
+                                </div>
+                                <div class="space-y-1">
+                                    <p class="text-sm text-slate-400">End Time</p>
+                                    <p id="eventModalEndTime" class="text-white font-medium"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Location Details -->
+                        <div class="bg-slate-700/30 rounded-xl p-6">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                    <i class="fas fa-video text-emerald-400"></i>
+                                </div>
+                                <h4 class="text-lg font-semibold text-white">Meeting Location</h4>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-slate-400 mb-1">Type</p>
+                                        <p id="eventModalLocationType" class="text-white font-medium"></p>
+                                    </div>
+                                    <div id="eventModalJoinUrlContainer">
+                                        <a id="eventModalJoinUrl" 
+                                           target="_blank" 
+                                           class="px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-colors inline-flex items-center space-x-2">
+                                            <i class="fas fa-video"></i>
+                                            <span>Join Meeting</span>
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-2 text-sm">
+                                    <span class="px-2 py-1 rounded-md bg-slate-800/50">
+                                        <i id="eventModalLocationStatusIcon" class="fas fa-circle text-xs mr-2"></i>
+                                        <span id="eventModalLocationStatus" class="text-slate-300"></span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Event Members -->
+                        <div class="bg-slate-700/30 rounded-xl p-6">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
+                                    <i class="fas fa-users text-violet-400"></i>
+                                </div>
+                                <h4 class="text-lg font-semibold text-white">Event Members</h4>
+                            </div>
+                            <div id="eventModalMembers" class="space-y-3">
+                                <!-- Members will be inserted here -->
+                            </div>
+                        </div>
+
+                        <!-- Event Guests -->
+                        <div class="bg-slate-700/30 rounded-xl p-6">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                    <i class="fas fa-user-friends text-amber-400"></i>
+                                </div>
+                                <h4 class="text-lg font-semibold text-white">Event Guests</h4>
+                            </div>
+                            <div id="eventModalGuests" class="space-y-3">
+                                <!-- Will be populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column - Additional Info -->
+                    <div class="space-y-6">
+                        <!-- Calendar Details -->
+                        <div class="bg-slate-700/30 rounded-xl p-6">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center">
+                                    <i class="fas fa-calendar text-pink-400"></i>
+                                </div>
+                                <h4 class="text-lg font-semibold text-white">Calendar Details</h4>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <p class="text-sm text-slate-400 mb-1">Calendar Type</p>
+                                    <p id="eventModalCalendarKind" class="text-white font-medium"></p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-slate-400 mb-1">External ID</p>
+                                    <p id="eventModalExternalId" class="text-white font-medium break-all"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Invitees Counter -->
+                        <div class="bg-slate-700/30 rounded-xl p-6">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                                    <i class="fas fa-user-plus text-cyan-400"></i>
+                                </div>
+                                <h4 class="text-lg font-semibold text-white">Invitees</h4>
+                            </div>
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="bg-slate-800/50 rounded-lg p-3 text-center">
+                                    <p class="text-sm text-slate-400 mb-1">Active</p>
+                                    <p id="eventModalInviteesActive" class="text-lg font-semibold text-white"></p>
+                                </div>
+                                <div class="bg-slate-800/50 rounded-lg p-3 text-center">
+                                    <p class="text-sm text-slate-400 mb-1">Total</p>
+                                    <p id="eventModalInviteesTotal" class="text-lg font-semibold text-white"></p>
+                                </div>
+                                <div class="bg-slate-800/50 rounded-lg p-3 text-center">
+                                    <p class="text-sm text-slate-400 mb-1">Limit</p>
+                                    <p id="eventModalInviteesLimit" class="text-lg font-semibold text-white"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Creation Info -->
+                        <div class="bg-slate-700/30 rounded-xl p-6">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                                    <i class="fas fa-info-circle text-indigo-400"></i>
+                                </div>
+                                <h4 class="text-lg font-semibold text-white">Event Info</h4>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <p class="text-sm text-slate-400 mb-1">Created At</p>
+                                    <p id="eventModalCreatedAt" class="text-white font-medium"></p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-slate-400 mb-1">Last Updated</p>
+                                    <p id="eventModalUpdatedAt" class="text-white font-medium"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-6 border-t border-slate-700/50 bg-slate-800/50">
+                <div class="flex justify-between items-center">
+                    <div class="text-sm text-slate-400">
+                        <span class="text-slate-500">Event ID:</span>
+                        <span id="eventModalUri" class="font-mono"></span>
+                    </div>
+                    <button onclick="closeEventDetailsModal()" 
+                            class="px-6 py-2.5 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update the showEventDetailsModal JavaScript function -->
+    <script>
+    function showEventDetailsModal(event) {
+        // Format dates
+        const formatDate = (dateString) => {
+            const date = new Date(dateString);
+            return date.toLocaleString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZoneName: 'short'
+            });
+        };
+
+        // Calculate duration
+        const startTime = new Date(event.start_time);
+        const endTime = new Date(event.end_time);
+        const durationMinutes = Math.round((endTime - startTime) / (1000 * 60));
+        const durationHours = Math.floor(durationMinutes / 60);
+        const remainingMinutes = durationMinutes % 60;
+        const durationText = durationHours > 0 
+            ? `${durationHours}h ${remainingMinutes}m` 
+            : `${durationMinutes}m`;
+
+        // Update modal content
+        document.getElementById('eventModalTitle').textContent = event.name;
+        document.getElementById('eventModalStatus').innerHTML = `
+            <i class="fas fa-circle text-xs ${event.status === 'active' ? 'text-emerald-400' : 'text-amber-400'}"></i>
+            <span>${event.status.charAt(0).toUpperCase() + event.status.slice(1)}</span>
+        `;
+        document.getElementById('eventModalDuration').textContent = `Duration: ${durationText}`;
+        document.getElementById('eventModalStartTime').textContent = formatDate(event.start_time);
+        document.getElementById('eventModalEndTime').textContent = formatDate(event.end_time);
+        document.getElementById('eventModalCreatedAt').textContent = formatDate(event.created_at);
+        document.getElementById('eventModalUpdatedAt').textContent = formatDate(event.updated_at);
+
+        // Location details
+        if (event.location) {
+            const locationType = event.location.type.replace(/_/g, ' ').split(' ').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+            document.getElementById('eventModalLocationType').textContent = locationType;
+            document.getElementById('eventModalLocationStatus').textContent = 
+                event.location.status.charAt(0).toUpperCase() + event.location.status.slice(1);
+            
+            // Update status icon color
+            const statusIcon = document.getElementById('eventModalLocationStatusIcon');
+            statusIcon.className = `fas fa-circle text-xs mr-2 ${
+                event.location.status === 'pushed' ? 'text-emerald-400' : 'text-amber-400'
+            }`;
+            
+            const joinUrlContainer = document.getElementById('eventModalJoinUrlContainer');
+            const joinUrlLink = document.getElementById('eventModalJoinUrl');
+            if (event.location.join_url) {
+                joinUrlContainer.classList.remove('hidden');
+                joinUrlLink.href = event.location.join_url;
+            } else {
+                joinUrlContainer.classList.add('hidden');
+            }
+        }
+
+        // Event members
+        const membersContainer = document.getElementById('eventModalMembers');
+        membersContainer.innerHTML = event.event_memberships.map(member => `
+            <div class="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors">
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center">
+                        <span class="text-violet-400 font-medium text-lg">${member.user_name.charAt(0)}</span>
+                    </div>
+                    <div>
+                        <p class="text-white font-medium">${member.user_name}</p>
+                        <p class="text-sm text-slate-400">${member.user_email}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm px-3 py-1.5 rounded-lg bg-slate-700/50 text-slate-300">
+                        <p>${new Date(member.buffered_start_time).toLocaleTimeString()} - ${new Date(member.buffered_end_time).toLocaleTimeString()}</p>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        // Event guests
+        const guestsContainer = document.getElementById('eventModalGuests');
+        if (event.event_guests && event.event_guests.length > 0) {
+            guestsContainer.innerHTML = event.event_guests.map(guest => `
+                <div class="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                            <span class="text-amber-400 font-medium text-lg">${guest.name.charAt(0)}</span>
+                        </div>
+                        <div>
+                            <p class="text-white font-medium">${guest.name}</p>
+                            <p class="text-sm text-slate-400">${guest.email}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            guestsContainer.innerHTML = `
+                <div class="text-center py-6 bg-slate-800/50 rounded-lg">
+                    <div class="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-user-friends text-2xl text-amber-400"></i>
+                    </div>
+                    <p class="text-slate-400">No guests for this event</p>
+                </div>
+            `;
+        }
+
+        // Calendar details
+        document.getElementById('eventModalCalendarKind').textContent = 
+            event.calendar_event.kind.charAt(0).toUpperCase() + event.calendar_event.kind.slice(1);
+        document.getElementById('eventModalExternalId').textContent = event.calendar_event.external_id;
+
+        // Invitees counter
+        document.getElementById('eventModalInviteesActive').textContent = event.invitees_counter.active;
+        document.getElementById('eventModalInviteesTotal').textContent = event.invitees_counter.total;
+        document.getElementById('eventModalInviteesLimit').textContent = event.invitees_counter.limit;
+
+        // Event URI
+        document.getElementById('eventModalUri').textContent = event.uri;
+
+        // Show modal
+        const modal = document.getElementById('eventDetailsModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeEventDetailsModal() {
+        const modal = document.getElementById('eventDetailsModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('eventDetailsModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeEventDetailsModal();
+        }
+    });
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !document.getElementById('eventDetailsModal').classList.contains('hidden')) {
+            closeEventDetailsModal();
+        }
+    });
+    </script>
+</body>
+</html>

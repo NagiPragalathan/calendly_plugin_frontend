@@ -312,7 +312,7 @@
                                        target="_blank"
                                        class="px-4 py-2 bg-violet-500/10 text-violet-400 rounded-lg hover:bg-violet-500/20 transition-colors flex items-center space-x-2">
                                         <i class="fas fa-video"></i>
-                                        <span>View Recording</span>
+                                        <span>View Meeting Link</span>
                                     </a>
                                 ` : ''}
                                 <button onclick='showEventDetailsModal(${JSON.stringify(event).replace(/'/g, "&apos;")})' 
@@ -1087,6 +1087,28 @@
                     </div>
                 </div>
 
+                <!-- After the Stats Grid and before Past Events List -->
+                <div class="glass-effect rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                                <i class="fas fa-chart-bar text-white text-xl"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-white">Event Analytics</h3>
+                        </div>
+                        <div class="flex space-x-4">
+                            <select id="graphTimeRange" class="bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-2 text-white appearance-none focus:outline-none focus:border-violet-500/50">
+                                <option value="week">Last Week</option>
+                                <option value="month">Last Month</option>
+                                <option value="year">Last Year</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="relative w-full h-[400px] bg-slate-800/50 rounded-xl p-4">
+                        <canvas id="eventsChart"></canvas>
+                    </div>
+                </div>
+
                 <!-- Past Events List -->
                 <div class="glass-effect rounded-2xl overflow-hidden">
                     <div class="p-6 border-b border-slate-700/50">
@@ -1121,5 +1143,176 @@
             <p class="text-slate-400">Please wait while we fetch your data...</p>
         </div>
     </div>
+
+    <!-- Add Chart.js before the closing </body> tag -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let eventsChart = null;
+
+        function initializeChart() {
+            const ctx = document.getElementById('eventsChart');
+            if (!ctx) return;
+            
+            // Destroy existing chart if it exists
+            if (eventsChart) {
+                eventsChart.destroy();
+            }
+
+            // Create gradient
+            const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(139, 92, 246, 0.5)');
+            gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+
+            eventsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Number of Events',
+                        data: [],
+                        borderColor: '#8b5cf6',
+                        backgroundColor: gradient,
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#8b5cf6',
+                        pointBorderColor: '#ffffff',
+                        pointHoverBackgroundColor: '#ffffff',
+                        pointHoverBorderColor: '#8b5cf6',
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                            titleColor: '#ffffff',
+                            bodyColor: '#ffffff',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: false,
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    return tooltipItems[0].label;
+                                },
+                                label: function(context) {
+                                    return `${context.parsed.y} Events`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                padding: 10,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                padding: 10,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChartData(timeRange) {
+            if (!allEvents || !allEvents.length) return;
+
+            const now = new Date();
+            let startDate;
+            let dateFormat;
+            let groupingInterval;
+
+            switch(timeRange) {
+                case 'week':
+                    startDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+                    dateFormat = { month: 'short', day: 'numeric' };
+                    groupingInterval = 'day';
+                    break;
+                case 'month':
+                    startDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+                    dateFormat = { month: 'short', day: 'numeric' };
+                    groupingInterval = 'day';
+                    break;
+                case 'year':
+                    startDate = new Date(now.getTime() - (365 * 24 * 60 * 60 * 1000));
+                    dateFormat = { month: 'short' };
+                    groupingInterval = 'month';
+                    break;
+            }
+
+            // Filter events within the time range
+            const filteredEvents = allEvents.filter(event => {
+                const eventDate = new Date(event.start_time);
+                return eventDate >= startDate && eventDate <= now;
+            });
+
+            // Group events by date
+            const eventsByDate = {};
+            filteredEvents.forEach(event => {
+                const date = new Date(event.start_time);
+                const dateKey = date.toLocaleDateString('en-US', dateFormat);
+                eventsByDate[dateKey] = (eventsByDate[dateKey] || 0) + 1;
+            });
+
+            // Sort dates
+            const sortedDates = Object.keys(eventsByDate).sort((a, b) => {
+                return new Date(a) - new Date(b);
+            });
+
+            // Update chart
+            if (eventsChart) {
+                eventsChart.data.labels = sortedDates;
+                eventsChart.data.datasets[0].data = sortedDates.map(date => eventsByDate[date]);
+                eventsChart.update();
+            }
+        }
+
+        // Modify the loadAndDisplayPastEvents function
+        const originalLoadAndDisplayPastEvents = loadAndDisplayPastEvents;
+        loadAndDisplayPastEvents = function() {
+            originalLoadAndDisplayPastEvents();
+            
+            // Initialize chart after a short delay to ensure DOM is ready
+            setTimeout(() => {
+                initializeChart();
+                updateChartData('week');
+            }, 500);
+        };
+
+        // Add event listener for time range selector
+        document.getElementById('graphTimeRange').addEventListener('change', (e) => {
+            updateChartData(e.target.value);
+        });
+    </script>
 </body>
 </html>
