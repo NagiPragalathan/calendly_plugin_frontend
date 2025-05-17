@@ -102,6 +102,53 @@
         .toast-exit {
             animation: slideOut 0.3s ease-out forwards;
         }
+
+        .toast-container {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .toast {
+            min-width: 300px;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        .toast-enter {
+            animation: slideInRight 0.3s ease-out forwards;
+        }
+
+        .toast-exit {
+            animation: slideOutRight 0.3s ease-out forwards;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-white">
@@ -272,7 +319,7 @@
     </div>
 
     <!-- Toast Container -->
-    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+    <div id="toastContainer" class="toast-container"></div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -539,27 +586,33 @@
             
             // Create toast element
             const toast = document.createElement('div');
-            toast.className = `toast-enter flex items-center space-x-2 px-4 py-3 rounded-xl shadow-lg ${
+            toast.className = `toast toast-enter flex items-center justify-between px-4 py-3 rounded-xl ${
                 type === 'success' ? 'bg-emerald-500/90' : 'bg-red-500/90'
-            } text-white backdrop-blur-sm`;
+            }`;
             
-            // Create icon based on type
+            // Create left content wrapper
+            const leftContent = document.createElement('div');
+            leftContent.className = 'flex items-center space-x-3';
+            
+            // Create icon
             const icon = document.createElement('i');
-            icon.className = `fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}`;
+            icon.className = `fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} text-white`;
             
-            // Create message element
+            // Create message
             const messageElement = document.createElement('span');
+            messageElement.className = 'text-white font-medium';
             messageElement.textContent = message;
             
             // Create close button
             const closeButton = document.createElement('button');
-            closeButton.className = 'ml-4 hover:text-white/80 transition-colors';
+            closeButton.className = 'text-white/80 hover:text-white transition-colors focus:outline-none';
             closeButton.innerHTML = '<i class="fas fa-times"></i>';
             closeButton.onclick = () => removeToast(toast);
             
             // Assemble toast
-            toast.appendChild(icon);
-            toast.appendChild(messageElement);
+            leftContent.appendChild(icon);
+            leftContent.appendChild(messageElement);
+            toast.appendChild(leftContent);
             toast.appendChild(closeButton);
             
             // Add to container
@@ -572,17 +625,42 @@
         function removeToast(toast) {
             toast.classList.remove('toast-enter');
             toast.classList.add('toast-exit');
-            setTimeout(() => toast.remove(), 300);
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.parentElement.removeChild(toast);
+                }
+            }, 300);
         }
 
         function copyToClipboard(text) {
-            navigator.clipboard.writeText(text)
-                .then(() => {
+            if (!text) {
+                showToast('No URL to copy!', 'error');
+                return;
+            }
+
+            try {
+                navigator.clipboard.writeText(text).then(() => {
                     showToast('Booking link copied to clipboard!', 'success');
-                })
-                .catch(() => {
-                    showToast('Failed to copy booking link!', 'error');
+                }).catch((err) => {
+                    console.error('Failed to copy: ', err);
+                    // Fallback to older method
+                    const tempInput = document.createElement('input');
+                    tempInput.style.position = 'absolute';
+                    tempInput.style.left = '-9999px';
+                    document.body.appendChild(tempInput);
+                    tempInput.value = text;
+                    tempInput.select();
+                    try {
+                        document.execCommand('copy');
+                        showToast('Booking link copied to clipboard!', 'success');
+                    } catch (err) {
+                        showToast('Failed to copy booking link!', 'error');
+                    }
+                    document.body.removeChild(tempInput);
                 });
+            } catch (err) {
+                showToast('Failed to copy booking link!', 'error');
+            }
         }
 
         function toggleEventStatus(eventUri, currentStatus) {
