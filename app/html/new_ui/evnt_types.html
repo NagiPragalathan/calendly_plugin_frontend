@@ -72,6 +72,35 @@
                 z-index: 50;
             }
         }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        .toast-enter {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        .toast-exit {
+            animation: slideOut 0.3s ease-out forwards;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-white">
@@ -195,6 +224,9 @@
         </main>
     </div>
 
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Load event types from localStorage
@@ -292,14 +324,10 @@
                                             <span>View Booking Page</span>
                                         </a>
                                         <button onclick="copyToClipboard('${type.scheduling_url}')"
-                                                class="w-full flex items-center px-4 py-2 text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors">
-                                            <i class="fas fa-copy w-5"></i>
+                                                class="w-full flex items-center px-4 py-2 text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors group">
+                                            <i class="fas fa-copy w-5 group-hover:hidden"></i>
+                                            <i class="fas fa-check w-5 hidden group-hover:block"></i>
                                             <span>Copy Booking Link</span>
-                                        </button>
-                                        <button onclick="toggleEventStatus('${type.uri}', ${type.active})"
-                                                class="w-full flex items-center px-4 py-2 text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors">
-                                            <i class="fas fa-${type.active ? 'times' : 'check'}-circle w-5"></i>
-                                            <span>${type.active ? 'Deactivate' : 'Activate'}</span>
                                         </button>
                                     </div>
                                 </div>
@@ -456,11 +484,55 @@
             menu.classList.toggle('hidden');
         }
 
+        function showToast(message, type = 'success') {
+            const toastContainer = document.getElementById('toastContainer');
+            
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `toast-enter flex items-center space-x-2 px-4 py-3 rounded-xl shadow-lg ${
+                type === 'success' ? 'bg-emerald-500/90' : 'bg-red-500/90'
+            } text-white backdrop-blur-sm`;
+            
+            // Create icon based on type
+            const icon = document.createElement('i');
+            icon.className = `fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}`;
+            
+            // Create message element
+            const messageElement = document.createElement('span');
+            messageElement.textContent = message;
+            
+            // Create close button
+            const closeButton = document.createElement('button');
+            closeButton.className = 'ml-4 hover:text-white/80 transition-colors';
+            closeButton.innerHTML = '<i class="fas fa-times"></i>';
+            closeButton.onclick = () => removeToast(toast);
+            
+            // Assemble toast
+            toast.appendChild(icon);
+            toast.appendChild(messageElement);
+            toast.appendChild(closeButton);
+            
+            // Add to container
+            toastContainer.appendChild(toast);
+            
+            // Remove after 3 seconds
+            setTimeout(() => removeToast(toast), 3000);
+        }
+
+        function removeToast(toast) {
+            toast.classList.remove('toast-enter');
+            toast.classList.add('toast-exit');
+            setTimeout(() => toast.remove(), 300);
+        }
+
         function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                // You could add a toast notification here
-                console.log('Copied to clipboard');
-            });
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    showToast('Booking link copied to clipboard!', 'success');
+                })
+                .catch(() => {
+                    showToast('Failed to copy booking link!', 'error');
+                });
         }
 
         function toggleEventStatus(eventUri, currentStatus) {
