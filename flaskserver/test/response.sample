@@ -1,0 +1,111 @@
+{
+  "created_at": "2025-05-19T05:50:58.000000Z",
+  "created_by": "https://api.calendly.com/users/ce793946-42ce-4735-83d1-b4ce07155fbf",
+  "event": "invitee.created",
+  "payload": {
+    "cancel_url": "https://calendly.com/cancellations/0b467808-8956-43d0-ae86-39722598f7f8",
+    "created_at": "2025-05-19T05:50:57.654472Z",
+    "email": "nagipragalatham@gmail.com",
+    "event": "https://api.calendly.com/scheduled_events/a743b3f3-78a6-45bf-82c3-5060ffa6a500",
+    "first_name": null,
+    "invitee_scheduled_by": null,
+    "last_name": null,
+    "name": "Nagi Pragalathan",
+    "new_invitee": null,
+    "no_show": null,
+    "old_invitee": null,
+    "payment": null,
+    "questions_and_answers": [
+      {
+        "answer": "sample response and testing",
+        "position": 0,
+        "question": "Please share anything that will help prepare for our meeting."
+      }
+    ],
+    "reconfirmation": null,
+    "reschedule_url": "https://calendly.com/reschedulings/0b467808-8956-43d0-ae86-39722598f7f8",
+    "rescheduled": false,
+    "routing_form_submission": null,
+    "scheduled_event": {
+      "created_at": "2025-05-19T05:50:57.643250Z",
+      "end_time": "2025-05-19T11:00:00.000000Z",
+      "event_guests": [
+        {
+          "created_at": "2025-05-19T05:50:57.667293Z",
+          "email": "assddf@gmail.com",
+          "updated_at": "2025-05-19T05:50:57.667293Z"
+        },
+        {
+          "created_at": "2025-05-19T05:50:57.665414Z",
+          "email": "qwert@gmail.com",
+          "updated_at": "2025-05-19T05:50:57.665414Z"
+        }
+      ],
+      "event_memberships": [
+        {
+          "user": "https://api.calendly.com/users/ce793946-42ce-4735-83d1-b4ce07155fbf",
+          "user_email": "arun@xtracut.com",
+          "user_name": "Arun Antony"
+        }
+      ],
+      "event_type": "https://api.calendly.com/event_types/e6cdf00d-502c-49ae-bbfe-fe7c2f41e978",
+      "invitees_counter": {
+        "total": 1,
+        "active": 1,
+        "limit": 1
+      },
+      "location": {
+        "join_url": "https://calendly.com/events/a743b3f3-78a6-45bf-82c3-5060ffa6a500/google_meet",
+        "status": "processing",
+        "type": "google_conference"
+      },
+      "meeting_notes_html": null,
+      "meeting_notes_plain": null,
+      "name": "30 Minute Meeting",
+      "start_time": "2025-05-19T10:30:00.000000Z",
+      "status": "active",
+      "updated_at": "2025-05-19T05:50:57.643250Z",
+      "uri": "https://api.calendly.com/scheduled_events/a743b3f3-78a6-45bf-82c3-5060ffa6a500"
+    },
+    "scheduling_method": null,
+    "status": "active",
+    "text_reminder_number": null,
+    "timezone": "Asia/Calcutta",
+    "tracking": {
+      "utm_campaign": null,
+      "utm_source": null,
+      "utm_medium": null,
+      "utm_content": null,
+      "utm_term": null,
+      "salesforce_uuid": null
+    },
+    "updated_at": "2025-05-19T05:50:57.654472Z",
+    "uri": "https://api.calendly.com/scheduled_events/a743b3f3-78a6-45bf-82c3-5060ffa6a500/invitees/0b467808-8956-43d0-ae86-39722598f7f8"
+  }
+}
+
+
+
+
+
+
+
+
+
+
+payload_data = Map();
+formsText = 'Meeting Details: \n\n Name :Nagi Pragalathan\n\n Event Memberships : {"user":"https://api.calendly.com/users/ce793946-42ce-4735-83d1-b4ce07155fbf","user_email":"arun@xtracut.com","user_name":"Arun Antony"}\n\n Event Guests :{"created_at":"2025-05-19T05:59:26.187199Z","email":"asdf@gmail.com","updated_at":"2025-05-19T05:59:26.187199Z"},{"created_at":"2025-05-19T05:59:26.209940Z","email":"qwer@gmail.com","updated_at":"2025-05-19T05:59:26.209940Z"}';
+
+payload_data.put("meeting_string", formsText);
+
+meetingEndTime = invokeurl
+[
+	url :"https://calendly-server-sigma.vercel.app/process-meeting"
+	type :POST
+	parameters:payload_data
+	content-type:"application/x-www-form-urlencoded"
+];
+
+info meetingEndTime.toMap().get("data").get("message");
+
+return meetingEndTime.toMap().get("data").get("message");
