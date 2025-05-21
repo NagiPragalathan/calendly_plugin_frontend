@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Past Zoho Meetings - Calendly</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../../js/lib/jquery-3.3.1.min.js"></script>
+    <script src="../../js/lib/ZohoEmbededAppSDK.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #0f172a;
+        }
+        .dashboard-card {
+            transition: all 0.3s ease;
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .dashboard-card:hover {
+            transform: translateY(-2px);
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .glass-effect {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white">
+    <div class="max-w-7xl mx-auto p-8 space-y-8">
+        <!-- Header -->
+        <div class="glass-effect rounded-2xl p-8">
+            <h1 class="text-3xl font-bold text-white mb-4">Past Zoho Meetings</h1>
+            <p class="text-slate-400">View and manage your completed Zoho meetings</p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="dashboard-card p-6 rounded-xl">
+                <div class="flex items-center space-x-4 mb-4">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                        <i class="fas fa-calendar-check text-white text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white">Total Meetings</h3>
+                </div>
+                <p id="totalMeetings" class="text-3xl font-bold text-violet-400">0</p>
+            </div>
+
+            <div class="dashboard-card p-6 rounded-xl">
+                <div class="flex items-center space-x-4 mb-4">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+                        <i class="fas fa-users text-white text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white">Total Participants</h3>
+                </div>
+                <p id="totalParticipants" class="text-3xl font-bold text-emerald-400">0</p>
+            </div>
+
+            <div class="dashboard-card p-6 rounded-xl">
+                <div class="flex items-center space-x-4 mb-4">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                        <i class="fas fa-clock text-white text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white">Average Duration</h3>
+                </div>
+                <p id="averageDuration" class="text-3xl font-bold text-blue-400">0 mins</p>
+            </div>
+        </div>
+
+        <!-- Meetings List -->
+        <div class="glass-effect rounded-2xl overflow-hidden">
+            <div class="p-6 border-b border-slate-700/50">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center">
+                        <i class="fas fa-list text-white text-xl"></i>
+                    </div>
+                    <h2 class="text-xl font-semibold text-white">Meeting History</h2>
+                </div>
+            </div>
+            <div class="p-6">
+                <div id="meetingsList" class="space-y-6">
+                    <!-- Meetings will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAndDisplayMeetings();
+        });
+
+        function loadAndDisplayMeetings() {
+            const meetingsData = localStorage.getItem('zoho_meetings');
+            if (!meetingsData) {
+                displayNoMeetingsMessage();
+                return;
+            }
+
+            try {
+                const meetings = JSON.parse(meetingsData);
+                updateStats(meetings);
+                displayMeetings(meetings);
+            } catch (error) {
+                console.error('Error parsing meetings data:', error);
+                displayNoMeetingsMessage();
+            }
+        }
+
+        function updateStats(meetings) {
+            // Update total meetings
+            document.getElementById('totalMeetings').textContent = meetings.length;
+
+            // Calculate total participants
+            const totalParticipants = meetings.reduce((total, meeting) => {
+                return total + (meeting.Participants ? meeting.Participants.length : 0);
+            }, 0);
+            document.getElementById('totalParticipants').textContent = totalParticipants;
+
+            // Calculate average duration
+            const totalDuration = meetings.reduce((total, meeting) => {
+                const start = new Date(meeting.Start_DateTime);
+                const end = new Date(meeting.End_DateTime);
+                return total + ((end - start) / (1000 * 60)); // Convert to minutes
+            }, 0);
+            const avgDuration = Math.round(totalDuration / meetings.length);
+            document.getElementById('averageDuration').textContent = `${avgDuration} mins`;
+        }
+
+        function displayMeetings(meetings) {
+            const container = document.getElementById('meetingsList');
+            if (!meetings || meetings.length === 0) {
+                displayNoMeetingsMessage();
+                return;
+            }
+
+            // Sort meetings by start time in descending order
+            meetings.sort((a, b) => new Date(b.Start_DateTime) - new Date(a.Start_DateTime));
+
+            const meetingsHTML = meetings.map(meeting => {
+                const startTime = new Date(meeting.Start_DateTime);
+                const endTime = new Date(meeting.End_DateTime);
+                const duration = Math.round((endTime - startTime) / (1000 * 60));
+
+                return `
+                    <div class="dashboard-card p-6 rounded-xl">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center">
+                                    <i class="fas fa-calendar-check text-white text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-white">${meeting.Event_Title}</h3>
+                                    <p class="text-slate-400 text-sm">${duration} minutes</p>
+                                </div>
+                            </div>
+                            <span class="px-3 py-1 text-sm text-emerald-400 bg-emerald-500/10 rounded-full">
+                                ${meeting.Check_In_Status}
+                            </span>
+                        </div>
+
+                        <div class="mt-4 p-4 rounded-lg bg-slate-800/50">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-sm text-slate-400 mb-1">Organizer</p>
+                                    <p class="text-white">${meeting.Owner.name}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-slate-400 mb-1">Created</p>
+                                    <p class="text-white">${new Date(meeting.Created_Time).toLocaleString()}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        ${meeting.Participants && meeting.Participants.length > 0 ? `
+                            <div class="mt-4 p-4 rounded-lg bg-slate-800/50">
+                                <p class="text-sm text-slate-400 mb-2">Participants</p>
+                                <div class="space-y-2">
+                                    ${meeting.Participants.map(participant => `
+                                        <div class="flex items-center space-x-2">
+                                            <i class="fas fa-user text-violet-400"></i>
+                                            <span class="text-white">${participant.participant}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${meeting.Description ? `
+                            <div class="mt-4 p-4 rounded-lg bg-slate-800/50">
+                                <p class="text-sm text-slate-400 mb-2">Description</p>
+                                <p class="text-white whitespace-pre-wrap">${meeting.Description}</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = meetingsHTML;
+        }
+
+        function displayNoMeetingsMessage() {
+            const container = document.getElementById('meetingsList');
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-calendar-xmark text-3xl text-slate-400"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-white mb-2">No Meetings Found</h3>
+                    <p class="text-slate-400">There are no past meetings to display.</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
+
+
+
+
