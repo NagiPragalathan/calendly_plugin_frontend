@@ -73,6 +73,37 @@
                 z-index: 50;
             }
         }
+
+        .nav-link.active {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+        .nav-link.active::before {
+            width: 100%;
+        }
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 60%;
+            background: linear-gradient(to bottom, #8b5cf6, #f472b6);
+            border-radius: 0 4px 4px 0;
+        }
+        .nav-link.active span {
+            background: linear-gradient(135deg, #8b5cf6, #f472b6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 600;
+        }
+        .nav-link.active .w-10 {
+            transform: scale(1.05);
+            transition: transform 0.3s ease;
+        }
         @keyframes slideIn {
             from {
                 transform: translateX(100%);
@@ -162,30 +193,35 @@
                 
                 <!-- Navigation Links -->
                 <nav class="space-y-3">
-                    <a href="dashboard.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                    <a href="./dashboard.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
                         <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
                             <i class="fas fa-home text-white"></i>
                         </div>
-                        <span class="font-medium">Dashboard</span>
+                        <span class="font-medium">Overall</span>
                     </a>
-                    <a href="#" class="nav-link active flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group relative bg-slate-800/50 border border-emerald-500/20">
-                        <div class="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-emerald-400 to-teal-500 rounded-r-full"></div>
-                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                            <i class="fas fa-calendar-alt text-white"></i>
-                        </div>
-                        <span class="font-medium text-emerald-400">Event Types</span>
-                    </a>
-                    <a href="upcomming_events.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
-                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                            <i class="fas fa-calendar-check text-white"></i>
-                        </div>
-                        <span class="font-medium">Upcoming Events</span>
-                    </a>
-                    <a href="past_events.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                    <a href="./past_events.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
                         <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-500/20">
                             <i class="fas fa-history text-white"></i>
                         </div>
                         <span class="font-medium">Past Events</span>
+                    </a>
+                    <a href="./upcoming_events.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                            <i class="fas fa-calendar text-white"></i>
+                        </div>
+                        <span class="font-medium">Upcoming Events</span>
+                    </a>
+                    <a href="./event_types.html" class="active nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                            <i class="fas fa-plus-circle text-white"></i>
+                        </div>
+                        <span class="font-medium">Event Types</span>
+                    </a>
+                    <a href="#" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                            <i class="fas fa-cog text-white"></i>
+                        </div>
+                        <span class="font-medium">Settings</span>
                     </a>
                 </nav>
             </div>
