@@ -104,19 +104,23 @@ else
 	formsText = "Meeting Details: \n\n Name :" + payload_data.get("name") + "\n\n Event Memberships : " + payload_data.get("scheduled_event").get("event_memberships").toString();
 	AddGuest = formsText + "\n\n Event Guests :" + payload_data.get("scheduled_event").get("event_guests").toString();
 	formsText = AddGuest;
-	
 	payload_data = Map();
-	payload_data.put("meeting_string": formsText);
-	
-	meetingEndTime = invokeurl
+	payload_data.put("meeting_string",formsText);
+	formatString = invokeurl
 	[
 		url :"https://calendly-server-sigma.vercel.app/process-meeting"
 		type :POST
-		parameters:data
+		parameters:payload_data
 		content-type:"application/x-www-form-urlencoded"
 	];
-	
-	newrecord.put("Description",formsText);
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :{"nagipragalathan@gmail.com","nagi@xtracut.com"}
+		subject :"Api hitting data sample response :"
+		message :formatString
+	]
+	newrecord.put("Description",formatString.toMap().get("data").get("message"));
 }
 participantUser = Map();
 participantUser.put("type","email");
