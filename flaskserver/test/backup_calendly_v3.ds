@@ -1,0 +1,199 @@
+// global variables
+crmContactOwnerEmail = zoho.loginuserid;
+plugin = "calendly";
+function_new = "onAppointment";
+debugVal = zoho.crm.getOrgVariable("calendly10__debug");
+debug = true;
+// request object 
+request = crmAPIRequest;
+// getting the body
+body = request.get("body");
+// getting payload_data 
+payload_data = body.get("payload");
+// invitee cancelled event 
+if(body.get("event") == "invitee.canceled")
+{
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :{"nagipragalathan@gmail.com","nagi@xtracut.com"}
+		subject :"Cancel Message mail"
+		message :"Hitted..!"
+	]
+	cancel_id = payload_data.get("cancel_url").toList("/").get(4);
+	data_crm = zoho.crm.searchRecords("Events","calendly10__Calendyid:equals:" + cancel_id);
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :{"nagipragalathan@gmail.com","nagi@xtracut.com"}
+		subject :"Cancel Message mail"
+		message :data_crm
+	]
+	NewData = data_crm.toMap();
+	NewData.put("calendly10__Calendly_Event_Status","Event Canceled");
+	info NewData;
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :{"nagipragalathan@gmail.com","nagi@xtracut.com"}
+		subject :"Cancel Message mail"
+		message :"NewData :" + NewData
+	]
+	resp_cancel = zoho.crm.updateRecord("Events",data_crm.toMap().get("id"),NewData);
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :{"nagipragalathan@gmail.com","nagi@xtracut.com"}
+		subject :"Cancel Message mail"
+		message :"resp_cancel :" + resp_cancel
+	]
+	return "canceled : " + resp_cancel;
+}
+// ------------------------------------------------------ Test 2 --------------------------------------------------------
+inviteeEmail = payload_data.get("email");
+// if the invite is created 
+entity = zoho.crm.getOrgVariable("calendly10__entity");
+module = zoho.crm.getOrgVariable("calendly10__meetingsTasks");
+// getting all user 
+m = Map();
+allUserResp = zoho.crm.getRecords(entity).toJsonList();
+userNotPresent = true;
+// looping to find users 
+for each  user in allUserResp
+{
+	email = user.getJson("Email");
+	if(email == inviteeEmail)
+	{
+		id = user.getJson("id");
+		userNotPresent = false;
+		break;
+	}
+}
+// ---------------------------------------------------------- Test 3 ----------------------------------------------------
+// if user is not present create new record 
+if(userNotPresent)
+{
+	// 	create user with last name and email
+	newUser = Map();
+	newUser.put("Last_Name",payload_data.get("name"));
+	newUser.put("Email",inviteeEmail);
+	createEntity = zoho.crm.createRecord(entity,newUser);
+	// 	fetch id of newly created user 
+	allUserResp = zoho.crm.getRecords(entity).toJsonList();
+	for each  user in allUserResp
+	{
+		email = user.get("Email");
+		if(email == inviteeEmail)
+		{
+			id = user.getJson("id");
+			break;
+		}
+	}
+}
+// ---------------------------------------------------------- Test 4 ----------------------------------------------------
+event = payload_data.get("scheduled_event");
+// getting time and converting to ist 
+// Type Here
+space = " ";
+// creating the meeting or task record
+if(module == "Tasks")
+{
+	newrecord = Map();
+	newrecord.put("Subject",event.get("name"));
+	newrecord.put("Due_Date",event.get("start_time").subString(0,10));
+}
+else
+{
+	newrecord = Map();
+	dateStartTime = event.get("start_time");
+	dateEndTime = event.get("end_time");
+	timeZone = payload_data.get("timezone");
+	// 	using digital ocean serverless function to time convertion
+	// 	meeting start time 
+	data = Map();
+	data.put("time",dateStartTime);
+	data.put("timeZone",timeZone);
+	meetingStartTime = invokeurl
+	[
+		url :"https://faas-blr1-8177d592.doserverless.co/api/v1/web/fn-0e938d59-984f-4e43-b133-7cc920485b22/default/time-convertor"
+		type :POST
+		parameters:data
+		content-type:"application/x-www-form-urlencoded"
+	];
+	data.clear();
+	// 	meeting end time 
+	data.put("time",dateEndTime);
+	data.put("timeZone",timeZone);
+	meetingEndTime = invokeurl
+	[
+		url :"https://faas-blr1-8177d592.doserverless.co/api/v1/web/fn-0e938d59-984f-4e43-b133-7cc920485b22/default/time-convertor"
+		type :POST
+		parameters:data
+		content-type:"application/x-www-form-urlencoded"
+	];
+	newrecord.put("Event_Title",event.get("name") + " to " + payload_data.get("name"));
+	newrecord.put("Start_DateTime",meetingStartTime);
+	newrecord.put("End_DateTime",meetingEndTime);
+	newrecord.put("calendly10__Calendly_Reschedule_Url",payload_data.get("reschedule_url"));
+	formsText = "Meeting Details \n\n Name :" + payload_data.get("name") + "\n\n Event Memberships : " + payload_data.get("scheduled_event").get("event_memberships").toString();
+	AddGuest = formsText + "\n\n Event Guests :" + payload_data.get("scheduled_event").get("event_guests").toString();
+	formsText = AddGuest;
+	payload_data_meeting_string = Map();
+	payload_data_meeting_string.put("meeting_string",formsText);
+	formatString = invokeurl
+	[
+		url :"https://calendly-server-sigma.vercel.app/process-meeting"
+		type :POST
+		parameters:payload_data_meeting_string
+		content-type:"application/x-www-form-urlencoded"
+	];
+	newrecord.put("Description",formatString.toMap().get("data").get("message"));
+	// Q/A
+	qa_list = Map();
+	qa_list.put("qa_list",payload_data.get("questions_and_answers"));
+	QA = invokeurl
+	[
+		url :"https://calendly-server-sigma.vercel.app/process-qa"
+		type :POST
+		parameters:qa_list
+		content-type:"application/x-www-form-urlencoded"
+	];
+	info QA.get("data").get("formatted_qa");
+	newrecord.put("calendly10__Calendly_Question_Answer",QA.get("data").get("formatted_qa"));
+	newrecord.put("calendly10__Calendar_Name",payload_data.get("scheduled_event").get("location").get("type"));
+	newrecord.put("calendly10__Calendly_Cancel_Url",payload_data.get("cancel_url"));
+	is_recreate = payload_data.get("old_invitee");
+	info "is_recreate :" + is_recreate;
+	if(is_recreate == null)
+	{
+		newrecord.put("calendly10__Calendly_Event_Status","Event Scheduled");
+		info "Event Scheduled";
+	}
+	else
+	{
+		newrecord.put("calendly10__Calendly_Event_Status","Event Rescheduled");
+		info "Event ReScheduled";
+	}
+	newrecord.put("calendly10__Calendly_Event_Uri",payload_data.get("uri"));
+	// Update calendly id
+	calendly_id = payload_data.get("cancel_url").toList("/").get(4);
+	newrecord.put("calendly10__Calendyid",calendly_id);
+}
+participantUser = Map();
+participantUser.put("type","email");
+participantUser.put("participant",inviteeEmail);
+participantUser.put("invited",true);
+participantUser.put("id",id);
+if(entity == "Leads")
+{
+	newrecord.put("What_Id",id);
+	newrecord.put("$se_module",entity);
+	newrecord.put("Participants",participantUser);
+}
+else
+{
+	newrecord.put("Who_Id",id);
+	newrecord.put("Participants",{participantUser});
+}
+createRecordResp = zoho.crm.createRecord(module,newrecord,{"trigger":{"workflow"}});
+return payload_data + "................" + inviteeEmail + "................" + userNotPresent + "................" + newrecord;
