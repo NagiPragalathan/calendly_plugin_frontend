@@ -8,81 +8,268 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- zoho sdk cdn  -->
     <script src="../js/lib/zohoSdk.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Toast Library -->
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <!-- main js  -->
     <script src="../js/settings.js"></script>
-  </head>
-  <body class="flex flex-col space-y-8 mx-8 mb-8">
-    <script>
-      ZOHO.embeddedApp.init().then(loadSettings);
-    </script>
-    <!-- title  -->
-    <div
-      class="text-3xl text-blue-700 font-bold flex items-center justify-center"
-    >
-      Calendly Setting
-    </div>
-    <div class="text-xl text-blue-700">
-      Select Tasks or Meetings to add Calendly Events
-    </div>
-    <!-- select option for tasks and meetings  -->
-    <select
-      class="w-96 text-xl p-2 rounded-lg"
-      name="task_meeting_option"
-      id="taskMeetingSelect"
-      onchange="changeTaskMeeting()"
-    >
-      <option value="Tasks">Tasks</option>
-      <option value="Events">Meetings</option>
-    </select>
-    <div class="text-xl text-blue-700">
-      Select Leads or Contact for Calendly Invitees
-    </div>
+    <style>
+      body {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background: #0f172a;
+        background-image: 
+          radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+          radial-gradient(at 100% 0%, rgba(244, 114, 182, 0.15) 0px, transparent 50%),
+          radial-gradient(at 50% 100%, rgba(56, 189, 248, 0.15) 0px, transparent 50%);
+      }
 
-    <!-- select option for tasks and meetings  -->
-    <select
-      class="w-96 text-xl p-2 rounded-lg"
-      name="task_meeting_option"
-      id="leadContactSelect"
-      onchange="changeLeadContact()"
-    >
-      <option value="Leads">Leads</option>
-      <option value="Contacts">Contacts</option>
-    </select>
-    <div
-      class="m-8 flex flex-col bg-gray-100 p-4 space-y-4 rounded-md shadow-md"
-    >
-      <div class="text-3xl font-bold text-blue-600">Help Card</div>
-      <div class="font-bold text-blue-600">
-        Welcome to the Calendly Extension by Xtracut Systems!
+      .settings-card {
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        transform-origin: center;
+        background: rgba(30, 41, 59, 0.6);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .settings-card:hover {
+        transform: translateY(-4px) scale(1.01);
+        border-color: rgba(255, 255, 255, 0.2);
+        box-shadow: 
+          0 20px 40px rgba(0, 0, 0, 0.3),
+          0 0 20px rgba(139, 92, 246, 0.1);
+      }
+
+      .select-wrapper {
+        position: relative;
+      }
+
+      .select-wrapper::after {
+        content: '\f107';
+        font-family: 'Font Awesome 6 Free';
+        font-weight: 900;
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        pointer-events: none;
+      }
+
+      select {
+        appearance: none;
+        transition: all 0.3s ease;
+      }
+
+      select:hover {
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+      }
+
+      select:focus {
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+      }
+
+      .glow {
+        position: absolute;
+        width: 60%;
+        height: 60%;
+        background: rgba(139, 92, 246, 0.15);
+        filter: blur(90px);
+        border-radius: 50%;
+        z-index: -1;
+        animation: pulse 4s ease-in-out infinite alternate;
+      }
+
+      .glow-1 { top: -25%; left: -25%; }
+      .glow-2 { bottom: -25%; right: -25%; background: rgba(244, 114, 182, 0.1); }
+
+      @keyframes pulse {
+        0% { opacity: 0.5; transform: scale(0.95); }
+        100% { opacity: 0.8; transform: scale(1.05); }
+      }
+
+      .animate-spin-slow {
+        animation: spin 8s linear infinite;
+      }
+
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body class="bg-slate-900">
+    <script>
+      ZOHO.embeddedApp.init().then(loadSettings).catch(err => {
+        showToast('Failed to initialize ZOHO SDK', 'error');
+        console.error('ZOHO SDK Init Error:', err);
+      });
+
+      function showToast(message, type = 'success') {
+        const colors = {
+          success: 'linear-gradient(to right, #8b5cf6, #f472b6)',
+          error: 'linear-gradient(to right, #ef4444, #f43f5e)'
+        };
+        
+        Toastify({
+          text: message,
+          duration: 3000,
+          gravity: "top",
+          position: "right",
+          style: {
+            background: colors[type],
+            fontFamily: "'Plus Jakarta Sans', sans-serif"
+          },
+          onClick: function(){}
+        }).showToast();
+      }
+    </script>
+
+    <!-- Main Content -->
+    <main class="min-h-screen">
+      <div class="max-w-4xl mx-auto p-8 space-y-8">
+        <!-- Enhanced Header -->
+        <div class="flex items-center justify-between bg-slate-800/30 p-8 rounded-2xl backdrop-blur-lg border border-slate-700/50 relative overflow-hidden hover:border-violet-500/30 transition-colors duration-500">
+          <div class="glow glow-1"></div>
+          <div class="glow glow-2"></div>
+          <div class="space-y-3">
+            <h1 class="text-4xl font-bold bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 bg-clip-text text-transparent">
+              Settings
+            </h1>
+            <p class="text-lg text-slate-400 max-w-lg">
+              Configure your Calendly integration preferences
+            </p>
+          </div>
+          <div class="hidden md:block">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg transform rotate-12 hover:rotate-45 transition-transform duration-500">
+              <i class="fas fa-cog text-white text-2xl animate-spin-slow"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings Cards Grid -->
+        <div class="grid gap-8">
+          <!-- Event Type Settings -->
+          <div class="settings-card rounded-2xl overflow-hidden shadow-xl">
+            <div class="p-6 border-b border-slate-700/50 relative">
+              <div class="glow glow-1"></div>
+              <div class="flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg transform transition-transform group-hover:scale-110">
+                  <i class="fas fa-calendar-plus text-white text-xl"></i>
+                </div>
+                <div>
+                  <h2 class="text-xl font-semibold text-white">Event Type Settings</h2>
+                  <p class="text-slate-400 text-sm">Choose where to add Calendly Events</p>
+                </div>
+              </div>
+            </div>
+            <div class="p-6 relative">
+              <div class="select-wrapper">
+                <select
+                  class="w-full bg-slate-800/50 text-white border border-slate-700/50 rounded-xl px-4 py-3.5 focus:outline-none focus:border-violet-500 transition-all duration-300 hover:bg-slate-800/70 hover:border-violet-500/50"
+                  name="task_meeting_option"
+                  id="taskMeetingSelect"
+                  onchange="changeTaskMeeting()"
+                >
+                  <option value="Tasks">Tasks</option>
+                  <option value="Events">Meetings</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Invitee Settings -->
+          <div class="settings-card rounded-2xl overflow-hidden shadow-xl">
+            <div class="p-6 border-b border-slate-700/50 relative">
+              <div class="glow glow-1"></div>
+              <div class="flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg transform transition-transform group-hover:scale-110">
+                  <i class="fas fa-users text-white text-xl"></i>
+                </div>
+                <div>
+                  <h2 class="text-xl font-semibold text-white">Invitee Settings</h2>
+                  <p class="text-slate-400 text-sm">Select contact type for Calendly Invitees</p>
+                </div>
+              </div>
+            </div>
+            <div class="p-6 relative">
+              <div class="select-wrapper">
+                <select
+                  class="w-full bg-slate-800/50 text-white border border-slate-700/50 rounded-xl px-4 py-3.5 focus:outline-none focus:border-violet-500 transition-all duration-300 hover:bg-slate-800/70 hover:border-violet-500/50"
+                  name="task_meeting_option"
+                  id="leadContactSelect"
+                  onchange="changeLeadContact()"
+                >
+                  <option value="Leads">Leads</option>
+                  <option value="Contacts">Contacts</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Help Section -->
+          <div class="settings-card rounded-2xl overflow-hidden shadow-xl">
+            <div class="p-6 border-b border-slate-700/50 relative">
+              <div class="glow glow-1"></div>
+              <div class="flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg transform transition-transform group-hover:scale-110">
+                  <i class="fas fa-question-circle text-white text-xl"></i>
+                </div>
+                <div>
+                  <h2 class="text-xl font-semibold text-white">Help & Support</h2>
+                  <p class="text-slate-400 text-sm">Get assistance with your Calendly integration</p>
+                </div>
+              </div>
+            </div>
+            <div class="p-6 space-y-4 text-slate-300">
+              <p class="leading-relaxed text-lg">
+                Welcome to the Calendly Extension by Xtracut Systems! Our extension provides seamless appointment and scheduling management.
+              </p>
+              <div class="space-y-3 bg-slate-800/40 p-6 rounded-xl border border-slate-700/50 hover:border-violet-500/30 transition-all duration-300">
+                <p class="font-semibold text-white flex items-center text-lg">
+                  <i class="fas fa-star text-amber-400 mr-2"></i>
+                  Key Features
+                </p>
+                <ul class="space-y-3">
+                  <li class="flex items-center text-slate-300 group">
+                    <i class="fas fa-check-circle text-emerald-400 mr-3 group-hover:scale-110 transition-transform"></i>
+                    Choose between Tasks or Meetings for new appointments
+                  </li>
+                  <li class="flex items-center text-slate-300 group">
+                    <i class="fas fa-check-circle text-emerald-400 mr-3 group-hover:scale-110 transition-transform"></i>
+                    Manage contact organization with Leads or Contacts options
+                  </li>
+                  <li class="flex items-center text-slate-300 group">
+                    <i class="fas fa-check-circle text-emerald-400 mr-3 group-hover:scale-110 transition-transform"></i>
+                    Seamless integration with your existing workflow
+                  </li>
+                </ul>
+              </div>
+              <div class="mt-6 flex items-center justify-between bg-slate-800/40 p-6 rounded-xl border border-slate-700/50 hover:border-violet-500/30 transition-all duration-300">
+                <div class="flex items-center">
+                  <i class="fas fa-headset text-violet-400 text-2xl mr-4"></i>
+                  <div>
+                    <p class="font-medium text-white text-lg">Need Help?</p>
+                    <a href="mailto:support@extracut.com" class="text-violet-400 hover:text-violet-300 transition-colors text-sm">
+                      support@extracut.com
+                    </a>
+                  </div>
+                </div>
+                <a href="mailto:support@extracut.com" 
+                   class="px-6 py-3 bg-violet-500/20 text-violet-400 rounded-xl hover:bg-violet-500/30 transition-all duration-300 flex items-center group">
+                  <i class="fas fa-envelope mr-2 group-hover:translate-x-1 transition-transform"></i>
+                  Contact Support
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div>
-        Our extension is designed to provide you with a seamless experience for
-        managing your appointments and scheduling. We've incorporated two
-        dropdown menus that offer you flexibility and control over your
-        workflow.
-      </div>
-      <div class="font-semibold">
-        The first dropdown menu allows you to choose the destination for adding
-        new person contacts. With a simple selection, you can ensure that your
-        contacts are organized efficiently within your preferred system.
-      </div>
-      <div class="font-semibold">
-        The second dropdown menu empowers you to decide whether new appointments
-        should be added to tasks or meetings. Tailor this setting to match your
-        specific workflow and optimize your scheduling process.
-      </div>
-      <div>
-        For any support or assistance you may need, we're here to help. Reach
-        out to our support team by email at
-        <a href="mailto:support@extracut.com" class="text-blue-600 font-bold"
-          >support@extracut.com</a
-        >, and we'll promptly address your inquiries.
-      </div>
-      <div>
-        Thank you for using the Calendly Extension by Xtracut Systems. We're
-        dedicated to enhancing your scheduling capabilities and making your
-        experience seamless and efficient.
-      </div>
-    </div>
+    </main>
   </body>
 </html>

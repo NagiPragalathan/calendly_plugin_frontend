@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calendly Setting</title>
+    <!-- tailwind css  -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- zoho sdk cdn  -->
+    <script src="../js/lib/zohoSdk.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Toast Library -->
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <!-- main js  -->
+    <script src="../js/settings.js"></script>
+    <style>
+      body {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background: #0f172a;
+        background-image: 
+          radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+          radial-gradient(at 100% 0%, rgba(244, 114, 182, 0.15) 0px, transparent 50%),
+          radial-gradient(at 50% 100%, rgba(56, 189, 248, 0.15) 0px, transparent 50%);
+      }
+      .glass-effect {
+        background: rgba(30, 41, 59, 0.6);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      }
+      .nav-link {
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+      }
+      .nav-link.active::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 4px;
+        height: 60%;
+        background: linear-gradient(to bottom, #8b5cf6, #f472b6);
+        border-radius: 0 4px 4px 0;
+      }
+      .settings-card {
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        transform-origin: center;
+        background: rgba(30, 41, 59, 0.5);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+        overflow: hidden;
+      }
+      .settings-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
+      }
+      .settings-card:hover {
+        transform: translateY(-4px) scale(1.01);
+        border-color: rgba(255, 255, 255, 0.2);
+        box-shadow: 
+          0 20px 40px rgba(0, 0, 0, 0.3),
+          0 0 20px rgba(139, 92, 246, 0.1);
+      }
+      .select-wrapper {
+        position: relative;
+      }
+      .select-wrapper::after {
+        content: '\f107';
+        font-family: 'Font Awesome 6 Free';
+        font-weight: 900;
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        pointer-events: none;
+      }
+      select {
+        appearance: none;
+        transition: all 0.3s ease;
+      }
+      select:hover {
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+      }
+      select:focus {
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+      }
+      .glow {
+        position: absolute;
+        width: 60%;
+        height: 60%;
+        background: rgba(139, 92, 246, 0.15);
+        filter: blur(90px);
+        border-radius: 50%;
+        z-index: -1;
+        animation: pulse 4s ease-in-out infinite alternate;
+      }
+      .glow-1 { top: -25%; left: -25%; }
+      .glow-2 { bottom: -25%; right: -25%; background: rgba(244, 114, 182, 0.1); }
+      @keyframes pulse {
+        0% { opacity: 0.5; transform: scale(0.95); }
+        100% { opacity: 0.8; transform: scale(1.05); }
+      }
+      .nav-link:hover {
+        background: rgba(30, 41, 59, 0.8);
+        transform: translateX(4px);
+      }
+      .animate-spin-slow {
+        animation: spin 8s linear infinite;
+      }
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body class="bg-slate-900">
+    <script>
+      ZOHO.embeddedApp.init().then(loadSettings).catch(err => {
+        showToast('Failed to initialize ZOHO SDK', 'error');
+        console.error('ZOHO SDK Init Error:', err);
+      });
+
+      // Enhanced toast notification function
+      function showToast(message, type = 'success') {
+        const colors = {
+          success: 'linear-gradient(to right, #8b5cf6, #f472b6)',
+          error: 'linear-gradient(to right, #ef4444, #f43f5e)'
+        };
+        
+        Toastify({
+          text: message,
+          duration: 3000,
+          gravity: "top",
+          position: "right",
+          style: {
+            background: colors[type],
+            fontFamily: "'Plus Jakarta Sans', sans-serif"
+          },
+          onClick: function(){}
+        }).showToast();
+      }
+
+      // Enhance existing functions with toast notifications and error handling
+      const originalChangeTaskMeeting = changeTaskMeeting;
+      changeTaskMeeting = function() {
+        const newValue = document.getElementById("taskMeetingSelect").value;
+        try {
+          ZOHO.CRM.CONNECTOR.invokeAPI("crm.set", {
+            apiname: "calendly10__meetingsTasks",
+            value: newValue,
+          }).then(function(data) {
+            console.log('Task/Meeting update response:', data);
+            if (data && data.status_code === "200") {
+              showToast(`Successfully updated events to be added as ${newValue}`);
+            } else {
+              showToast('Failed to update settings. Please try again.', 'error');
+            }
+          }).catch(function(error) {
+            console.error('Task/Meeting update error:', error);
+            showToast('Failed to update settings. Please try again.', 'error');
+          });
+        } catch (error) {
+          console.error('Task/Meeting function error:', error);
+          showToast('Failed to update settings. Please try again.', 'error');
+        }
+      }
+
+      const originalChangeLeadContact = changeLeadContact;
+      changeLeadContact = function() {
+        const newValue = document.getElementById("leadContactSelect").value;
+        try {
+          ZOHO.CRM.CONNECTOR.invokeAPI("crm.set", {
+            apiname: "calendly10__entity",
+            value: newValue,
+          }).then(function(data) {
+            console.log('Lead/Contact update response:', data);
+            if (data && data.status_code === "200") {
+              showToast(`Successfully updated invitee type to ${newValue}`);
+            } else {
+              showToast('Failed to update settings. Please try again.', 'error');
+            }
+          }).catch(function(error) {
+            console.error('Lead/Contact update error:', error);
+            showToast('Failed to update settings. Please try again.', 'error');
+          });
+        } catch (error) {
+          console.error('Lead/Contact function error:', error);
+          showToast('Failed to update settings. Please try again.', 'error');
+        }
+      }
+
+      // Add error handling to loadSettings function
+      function loadSettings() {
+        try {
+          ZOHO.CRM.API.getOrgVariable("calendly10__meetingsTasks")
+            .then(function(data) {
+              console.log('Meetings/Tasks data:', data);
+              if (data && data.Success) {
+                const module = data.Success.Content;
+                let optionsList = document.getElementById("taskMeetingSelect");
+                optionsList.value = module;
+              } else {
+                console.warn('No meetings/tasks data received');
+              }
+            })
+            .catch(function(error) {
+              console.error('Error loading meetings/tasks settings:', error);
+              showToast('Failed to load some settings', 'error');
+            });
+
+          ZOHO.CRM.API.getOrgVariable("calendly10__entity")
+            .then(function(data) {
+              console.log('Entity data:', data);
+              if (data && data.Success) {
+                const entity = data.Success.Content;
+                let optionsList = document.getElementById("leadContactSelect");
+                optionsList.value = entity;
+              } else {
+                console.warn('No entity data received');
+              }
+            })
+            .catch(function(error) {
+              console.error('Error loading entity settings:', error);
+              showToast('Failed to load some settings', 'error');
+            });
+        } catch (error) {
+          console.error('Error in loadSettings:', error);
+          showToast('Failed to load settings', 'error');
+        }
+      }
+    </script>
+
+    <div class="min-h-screen flex">
+      <!-- Sidebar -->
+      <aside class="glass-effect w-72 min-h-screen fixed border-r border-slate-700/50">
+        <div class="p-6">
+          <div class="flex items-center justify-center mb-10">
+            <div class="relative">
+              <div class="glow glow-1"></div>
+              <div class="glow glow-2"></div>
+              <h1 class="text-2xl font-bold bg-gradient-to-r from-violet-500 to-fuchsia-500 bg-clip-text text-transparent">
+                Calendly
+              </h1>
+            </div>
+          </div>
+          
+          <!-- Navigation Links -->
+          <nav class="space-y-3">
+            <a href="./new_ui/dashboard.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+              <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                <i class="fas fa-home text-white"></i>
+              </div>
+              <span class="font-medium">Overall</span>
+            </a>
+            <a href="./new_ui/past_events.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+              <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-500/20">
+                <i class="fas fa-history text-white"></i>
+              </div>
+              <span class="font-medium">Past Events</span>
+            </a>
+            <a href="./new_ui/upcoming_events.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+              <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <i class="fas fa-calendar text-white"></i>
+              </div>
+              <span class="font-medium">Upcoming Events</span>
+            </a>
+            <a href="./new_ui/event_types.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+              <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <i class="fas fa-plus-circle text-white"></i>
+              </div>
+              <span class="font-medium">Event Types</span>
+            </a>
+            <a href="#" class="nav-link active flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
+              <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                <i class="fas fa-cog text-white"></i>
+              </div>
+              <span class="font-medium">Settings</span>
+            </a>
+          </nav>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="pl-72 w-full min-h-screen">
+        <div class="max-w-7xl mx-auto p-8 space-y-8">
+          <!-- Enhanced Header -->
+          <div class="flex items-center justify-between bg-slate-800/30 p-8 rounded-2xl backdrop-blur-lg border border-slate-700/50 relative overflow-hidden hover:border-violet-500/30 transition-colors duration-500">
+            <div class="glow glow-1"></div>
+            <div class="glow glow-2"></div>
+            <div class="space-y-3">
+              <h1 class="text-4xl font-bold bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 bg-clip-text text-transparent animate-gradient">
+                Settings
+              </h1>
+              <p class="text-lg text-slate-400 max-w-lg">
+                Configure your Calendly integration preferences and customize your experience
+              </p>
+            </div>
+            <div class="hidden md:flex space-x-4">
+              <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg transform rotate-12 hover:rotate-45 transition-transform duration-500">
+                <i class="fas fa-cog text-white text-2xl animate-spin-slow"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Settings Cards Grid -->
+          <div class="grid grid-cols-1 gap-8">
+            <!-- Event Type Settings -->
+            <div class="settings-card rounded-2xl overflow-hidden shadow-xl">
+              <div class="p-6 border-b border-slate-700/50 relative">
+                <div class="glow glow-1"></div>
+                <div class="flex items-center space-x-4">
+                  <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg transform transition-transform group-hover:scale-110">
+                    <i class="fas fa-calendar-plus text-white text-xl"></i>
+                  </div>
+                  <div>
+                    <h2 class="text-xl font-semibold text-white">Event Type Settings</h2>
+                    <p class="text-slate-400 text-sm">Choose where to add Calendly Events</p>
+                  </div>
+                </div>
+              </div>
+              <div class="p-6 relative">
+                <div class="select-wrapper">
+                  <select
+                    class="w-full bg-slate-800/50 text-white border border-slate-700/50 rounded-xl px-4 py-3.5 focus:outline-none focus:border-violet-500 transition-all duration-300 hover:bg-slate-800/70 hover:border-violet-500/50"
+                    name="task_meeting_option"
+                    id="taskMeetingSelect"
+                    onchange="changeTaskMeeting()"
+                  >
+                    <option value="Tasks">Tasks</option>
+                    <option value="Events">Meetings</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Invitee Settings -->
+            <div class="settings-card rounded-2xl overflow-hidden shadow-xl">
+              <div class="p-6 border-b border-slate-700/50 relative">
+                <div class="glow glow-1"></div>
+                <div class="flex items-center space-x-4">
+                  <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg transform transition-transform group-hover:scale-110">
+                    <i class="fas fa-users text-white text-xl"></i>
+                  </div>
+                  <div>
+                    <h2 class="text-xl font-semibold text-white">Invitee Settings</h2>
+                    <p class="text-slate-400 text-sm">Select contact type for Calendly Invitees</p>
+                  </div>
+                </div>
+              </div>
+              <div class="p-6 relative">
+                <div class="select-wrapper">
+                  <select
+                    class="w-full bg-slate-800/50 text-white border border-slate-700/50 rounded-xl px-4 py-3.5 focus:outline-none focus:border-violet-500 transition-all duration-300 hover:bg-slate-800/70 hover:border-violet-500/50"
+                    name="task_meeting_option"
+                    id="leadContactSelect"
+                    onchange="changeLeadContact()"
+                  >
+                    <option value="Leads">Leads</option>
+                    <option value="Contacts">Contacts</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Enhanced Help Card -->
+            <div class="settings-card rounded-2xl overflow-hidden shadow-xl">
+              <div class="p-6 border-b border-slate-700/50 relative">
+                <div class="glow glow-1"></div>
+                <div class="flex items-center space-x-4">
+                  <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg transform transition-transform group-hover:scale-110">
+                    <i class="fas fa-question-circle text-white text-xl"></i>
+                  </div>
+                  <div>
+                    <h2 class="text-xl font-semibold text-white">Help & Support</h2>
+                    <p class="text-slate-400 text-sm">Get assistance with your Calendly integration</p>
+                  </div>
+                </div>
+              </div>
+              <div class="p-6 space-y-4 text-slate-300 relative">
+                <div class="glow glow-2"></div>
+                <p class="leading-relaxed text-lg">
+                  Welcome to the Calendly Extension by Xtracut Systems! Our extension provides seamless appointment and scheduling management.
+                </p>
+                <div class="space-y-3 bg-slate-800/40 p-6 rounded-xl border border-slate-700/50 hover:border-violet-500/30 transition-all duration-300">
+                  <p class="font-semibold text-white flex items-center text-lg">
+                    <i class="fas fa-star text-amber-400 mr-2"></i>
+                    Key Features
+                  </p>
+                  <ul class="space-y-3">
+                    <li class="flex items-center text-slate-300 group">
+                      <i class="fas fa-check-circle text-emerald-400 mr-3 group-hover:scale-110 transition-transform"></i>
+                      Choose between Tasks or Meetings for new appointments
+                    </li>
+                    <li class="flex items-center text-slate-300 group">
+                      <i class="fas fa-check-circle text-emerald-400 mr-3 group-hover:scale-110 transition-transform"></i>
+                      Manage contact organization with Leads or Contacts options
+                    </li>
+                    <li class="flex items-center text-slate-300 group">
+                      <i class="fas fa-check-circle text-emerald-400 mr-3 group-hover:scale-110 transition-transform"></i>
+                      Seamless integration with your existing workflow
+                    </li>
+                  </ul>
+                </div>
+                <div class="mt-6 flex items-center justify-between bg-slate-800/40 p-6 rounded-xl border border-slate-700/50 hover:border-violet-500/30 transition-all duration-300">
+                  <div class="flex items-center">
+                    <i class="fas fa-headset text-violet-400 text-2xl mr-4"></i>
+                    <div>
+                      <p class="font-medium text-white text-lg">Need Help?</p>
+                      <a href="mailto:support@extracut.com" class="text-violet-400 hover:text-violet-300 transition-colors text-sm">
+                        support@extracut.com
+                      </a>
+                    </div>
+                  </div>
+                  <a href="mailto:support@extracut.com" 
+                     class="px-6 py-3 bg-violet-500/20 text-violet-400 rounded-xl hover:bg-violet-500/30 transition-all duration-300 flex items-center group">
+                    <i class="fas fa-envelope mr-2 group-hover:translate-x-1 transition-transform"></i>
+                    Contact Support
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
