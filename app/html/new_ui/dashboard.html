@@ -147,6 +147,17 @@
         }
     </style>
     <script>
+        // Function to reload the parent window
+        function reloadParentWindow() {
+            try {
+                // Try to reload the parent window
+                window.parent.location.reload();
+            } catch (e) {
+                // Fallback: If can't access parent window, reload current window
+                window.location.reload();
+            }
+        }
+
         document.addEventListener("DOMContentLoaded", function() {
             console.log('DOM Content Loaded');
             
@@ -171,6 +182,14 @@
                     console.error('Error stack:', error.stack);
                     hideLoadingScreen('Failed to initialize ZOHO SDK');
                 });
+
+            // Show reload option after 15 seconds
+            setTimeout(() => {
+                const loadingTimer = document.getElementById('loadingTimer');
+                if (loadingTimer && document.getElementById('loadingOverlay').style.display !== 'none') {
+                    loadingTimer.classList.remove('hidden');
+                }
+            }, 4000); // 15 seconds
         });
 
         function hideLoadingScreen(errorMessage = null) {
@@ -184,13 +203,16 @@
                         <i class="fas fa-exclamation-triangle text-2xl text-red-400"></i>
                     </div>
                     <h2 class="text-xl font-semibold text-white mb-2">Error Loading Dashboard</h2>
-                    <p class="text-red-400">${errorMessage}</p>
+                    <p class="text-red-400 mb-6">${errorMessage}</p>
+                    <button onclick="reloadParentWindow()" 
+                            class="px-6 py-3 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-all duration-300 flex items-center justify-center space-x-3 mx-auto group">
+                        <i class="fas fa-redo-alt mr-2 group-hover:rotate-180 transition-transform duration-500"></i>
+                        <span>Try Again</span>
+                    </button>
                 `;
                 
-                // Hide error message after 3 seconds
-                setTimeout(() => {
-                    loadingOverlay.style.display = 'none';
-                }, 3000);
+                // Keep the error message visible
+                loadingOverlay.style.display = 'flex';
             } else {
                 // Fade out animation
                 loadingOverlay.style.opacity = '0';
@@ -434,7 +456,7 @@
                             <div class="space-y-4">
                                 ${categorizedAppointments.upcoming.slice(0, 3).map(renderMeetingCard).join('')}
                                 ${categorizedAppointments.upcoming.length > 3 ? `
-                                    <a href="#" class="block text-center py-3 text-violet-400 hover:text-violet-300 transition-colors font-medium">
+                                    <a href="./upcoming_events.html" class="block text-center py-3 text-violet-400 hover:text-violet-300 transition-colors font-medium">
                                         View All Upcoming Meetings (${categorizedAppointments.upcoming.length})
                                         <i class="fas fa-arrow-right ml-2"></i>
                                     </a>
@@ -460,7 +482,7 @@
                                 <div class="space-y-4">
                                     ${categorizedAppointments.past.slice(0, 3).map(renderMeetingCard).join('')}
                                     ${categorizedAppointments.past.length > 3 ? `
-                                        <a href="#" class="block text-center py-3 text-violet-400 hover:text-violet-300 transition-colors font-medium">
+                                        <a href="./past_meeting_zoho.html" class="block text-center py-3 text-violet-400 hover:text-violet-300 transition-colors font-medium">
                                             View All Past Meetings (${categorizedAppointments.past.length})
                                             <i class="fas fa-arrow-right ml-2"></i>
                                         </a>
@@ -816,6 +838,14 @@
                 }
             });
         }
+
+        // Add this to handle ZOHO SDK initialization errors
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            if (msg.includes('ZOHO')) {
+                hideLoadingScreen('Failed to initialize ZOHO SDK. Please try reloading.');
+            }
+            return false;
+        };
     </script>
 </head>
 <body class="bg-slate-900 text-white">
@@ -895,11 +925,11 @@
                         <p class="text-lg text-slate-400">Here's what's happening with your schedule</p>
                     </div>
                     <div class="flex flex-col sm:flex-row gap-4">
-                        <button onclick="showExportModal()" class="px-6 py-3 glass-effect text-slate-300 rounded-xl hover:bg-slate-800/50 transition-all duration-300 flex items-center justify-center space-x-3 group">
+                        <!-- <button  class="px-6 py-3 glass-effect text-slate-300 rounded-xl hover:bg-slate-800/50 transition-all duration-300 flex items-center justify-center space-x-3 group">
                             <i class="fas fa-external-link-alt group-hover:scale-110 transition-transform"></i>
                             <span>View Schedule</span>
-                        </button>
-                        <button class="px-6 py-3 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/20 transition-all duration-300 flex items-center justify-center space-x-3 group">
+                        </button> -->
+                        <button onclick="showExportModal()" class="px-6 py-3 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/20 transition-all duration-300 flex items-center justify-center space-x-3 group">
                             <i class="fas fa-plus group-hover:rotate-90 transition-transform"></i>
                             <span>New Event</span>
                         </button>
@@ -1027,10 +1057,10 @@
                                 <span class="px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-lg text-sm">
                                     <i class="fas fa-circle text-xs mr-2"></i>Active Account
                                 </span>
-                                <button class="px-6 py-3 text-violet-400 hover:text-violet-300 font-medium text-sm flex items-center space-x-3 bg-violet-500/10 rounded-xl hover:bg-violet-500/20 transition-all duration-300 group">
+                                <!-- <button class="px-6 py-3 text-violet-400 hover:text-violet-300 font-medium text-sm flex items-center space-x-3 bg-violet-500/10 rounded-xl hover:bg-violet-500/20 transition-all duration-300 group">
                                     <i class="fas fa-pen-to-square group-hover:rotate-12 transition-transform"></i>
                                     <span>Edit Profile</span>
-                                </button>
+                                </button> -->
                             </div>
                         </div>
                     </div>
@@ -1201,14 +1231,27 @@
 
     <!-- Loading Screen -->
     <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
-        <div class="text-center">
+        <div class="text-center max-w-md mx-auto p-8">
             <div class="w-20 h-20 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 animate-spin flex items-center justify-center mb-4 mx-auto">
                 <div class="w-16 h-16 rounded-xl bg-slate-900 flex items-center justify-center">
                     <i class="fas fa-calendar-alt text-2xl text-violet-400"></i>
                 </div>
             </div>
             <h2 class="text-xl font-semibold text-white mb-2">Loading Dashboard</h2>
-            <p class="text-slate-400">Please wait while we fetch your data...</p>
+            <p class="text-slate-400 mb-6">Please wait while we fetch your data...</p>
+            
+            <!-- Loading Timer Message -->
+            <div id="loadingTimer" class="hidden">
+                <p class="text-amber-400 mb-4">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    This is taking longer than expected
+                </p>
+                <button onclick="reloadParentWindow()" 
+                        class="px-6 py-3 bg-violet-500/20 text-violet-400 rounded-xl hover:bg-violet-500/30 transition-all duration-300 flex items-center justify-center space-x-3 mx-auto group">
+                    <i class="fas fa-redo-alt mr-2 group-hover:rotate-180 transition-transform duration-500"></i>
+                    <span>Reload Page</span>
+                </button>
+            </div>
         </div>
     </div>
 </body>
