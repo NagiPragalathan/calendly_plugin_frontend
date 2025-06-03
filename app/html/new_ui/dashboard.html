@@ -246,23 +246,46 @@
                     
                     if (data.details && data.details.output) {
                         console.log(`Output data for ${req.key}:`, data.details.output);
-                        const outputData = JSON.parse(data.details.output);
-                        console.log(`Parsed output data for ${req.key}:`, outputData);
+                        let outputData;
                         
-                        if (outputData.response) {
-                            const parsedData = JSON.parse(outputData.response);
-                            console.log(`Final parsed data for ${req.key}:`, parsedData);
+                        try {
+                            // Handle different response formats
+                            if (req.key === 'upcomingAppointments') {
+                                // For upcomingAppointments, the response is already an object
+                                outputData = typeof data.details.output === 'string' 
+                                    ? JSON.parse(data.details.output)
+                                    : data.details.output;
+                            } else {
+                                // For other types, parse the string response
+                                outputData = JSON.parse(data.details.output);
+                            }
+                            
+                            console.log(`Parsed output data for ${req.key}:`, outputData);
+                            
+                            let finalData;
+                            if (req.key === 'upcomingAppointments') {
+                                // For upcomingAppointments, use the data directly
+                                finalData = outputData;
+                            } else if (outputData.response) {
+                                // For other types, parse the nested response if it's a string
+                                finalData = typeof outputData.response === 'string'
+                                    ? JSON.parse(outputData.response)
+                                    : outputData.response;
+                            }
+                            
+                            console.log(`Final parsed data for ${req.key}:`, finalData);
                             
                             try {
-                                localStorage.setItem(`calendly_${req.key}`, JSON.stringify(parsedData));
+                                localStorage.setItem(`calendly_${req.key}`, JSON.stringify(finalData));
                                 console.log(`Successfully stored ${req.key} in localStorage`);
                             } catch (error) {
                                 console.error(`Error storing ${req.key} in localStorage:`, error);
                             }
                             
-                            updateDashboard(req.key, parsedData);
-                        } else {
-                            console.warn(`No response data found for ${req.key}`);
+                            updateDashboard(req.key, finalData);
+                        } catch (error) {
+                            console.error(`Error parsing data for ${req.key}:`, error);
+                            console.error('Error stack:', error.stack);
                             hasError = true;
                         }
                     } else {
@@ -356,30 +379,70 @@
                     break;
                 
                 case 'upcomingAppointments':
-                    const appointments = data.collection || [];
-                    console.log('All appointments:', appointments);
+                    const appointments = data.response?.collection || [];
+                    console.log(`Total appointments in response: ${appointments.length}`);
                     
                     // Get current date/time for comparison
                     const now = new Date();
+                    // Remove time portion for date comparison
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                     
                     // Categorize appointments
                     const categorizedAppointments = appointments.reduce((acc, meeting) => {
                         const startTime = new Date(meeting.start_time);
                         const endTime = new Date(meeting.end_time);
+                        // Remove time portion for date comparison
+                        const meetingDate = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate());
                         
-                        if (startTime > now) {
-                            // If start time is in future, it's upcoming
-                            acc.upcoming.push(meeting);
-                        } else if (endTime < now) {
-                            // If end time is in past, it's past
+                        console.log('Processing meeting:', {
+                            uri: meeting.uri,
+                            start: startTime.toISOString(),
+                            end: endTime.toISOString(),
+                            status: meeting.status,
+                            name: meeting.name,
+                            isToday: meetingDate.getTime() === today.getTime(),
+                            isPast: meetingDate < today,
+                            isFuture: meetingDate > today
+                        });
+
+                        // First check if meeting is past or not
+                        if (meetingDate < today || (meetingDate.getTime() === today.getTime() && endTime < now)) {
+                            // If meeting date is in past or if it's today but already ended
                             acc.past.push(meeting);
+                        } else if (meetingDate.getTime() === today.getTime()) {
+                            // If meeting is today and not ended
+                            if (startTime > now) {
+                                acc.upcoming.push(meeting);
+                            } else {
+                                acc.pending.push(meeting);
+                            }
                         } else {
-                            // If start time is past but end time is future, it's pending/ongoing
-                            acc.pending.push(meeting);
+                            // If meeting date is in future
+                            acc.upcoming.push(meeting);
                         }
+                        
+                        // Log counts after categorization
+                        console.log('Current counts:', {
+                            upcoming: acc.upcoming.length,
+                            pending: acc.pending.length,
+                            past: acc.past.length,
+                            total: acc.upcoming.length + acc.pending.length + acc.past.length
+                        });
+                        
                         return acc;
                     }, { upcoming: [], pending: [], past: [] });
                     
+                    // Log final categorization
+                    console.log('Final categorization:', {
+                        totalAppointments: appointments.length,
+                        upcomingCount: categorizedAppointments.upcoming.length,
+                        pendingCount: categorizedAppointments.pending.length,
+                        pastCount: categorizedAppointments.past.length,
+                        totalCategorized: categorizedAppointments.upcoming.length + 
+                                         categorizedAppointments.pending.length + 
+                                         categorizedAppointments.past.length
+                    });
+
                     // Store upcoming and past events separately in localStorage
                     try {
                         localStorage.setItem('calendly_upcoming_events', JSON.stringify(categorizedAppointments.upcoming));
@@ -394,56 +457,92 @@
                     // Update stats
                     document.getElementById('upcomingEvents').textContent = categorizedAppointments.upcoming.length;
                     
-                    // Count today's meetings from upcoming category only
-                    const today = new Date().toISOString().split('T')[0];
-                    const todayMeetings = categorizedAppointments.upcoming.filter(event => 
-                        event.start_time.startsWith(today)
-                    );
+                    // Count today's meetings
+                    const todayMeetings = [...categorizedAppointments.upcoming, ...categorizedAppointments.pending]
+                        .filter(event => new Date(event.start_time).toISOString().split('T')[0] === today.toISOString().split('T')[0]);
                     document.getElementById('todayMeetings').textContent = todayMeetings.length;
 
                     // Update upcoming meetings list
                     const meetingsList = document.getElementById('upcomingMeetingsList');
-                    console.log('Rendering meetings to UI...');
-                    
+                    console.log('Starting to render meetings to UI...');
+                    console.log('Total meetings to render:', {
+                        upcoming: categorizedAppointments.upcoming.length,
+                        pending: categorizedAppointments.pending.length,
+                        past: categorizedAppointments.past.length
+                    });
+
                     // Function to render meeting card
                     const renderMeetingCard = (meeting) => {
+                        console.log('Rendering meeting:', meeting.uri);
                         const startTime = new Date(meeting.start_time);
                         const endTime = new Date(meeting.end_time);
+                        const guests = meeting.event_guests || [];
+                        const location = meeting.location || {};
+                        
+                        // Determine card style based on status
+                        const cardStyle = meeting.status === 'canceled' 
+                            ? 'border-red-500/30 bg-red-500/5' 
+                            : 'border-slate-700/50';
+                        
                         return `
-                            <div class="dashboard-card p-4 rounded-xl">
+                            <div class="dashboard-card p-4 rounded-xl ${cardStyle}">
                                 <div class="flex items-center justify-between mb-3">
-                                    <h4 class="font-medium text-white">${meeting.name}</h4>
-                                    <span class="px-2 py-1 text-xs ${
-                                        meeting.status === 'active' ? 'text-emerald-400 bg-emerald-500/10' : 
-                                        'text-amber-400 bg-amber-500/10'
-                                    } rounded-full">
-                                        ${meeting.status.charAt(0).toUpperCase() + meeting.status.slice(1)}
-                                    </span>
+                                    <div class="flex items-center space-x-3">
+                                        <h4 class="font-medium text-white ${meeting.status === 'canceled' ? 'line-through text-slate-400' : ''}">${meeting.name}</h4>
+                                        <span class="px-2 py-1 text-xs ${
+                                            meeting.status === 'active' ? 'text-emerald-400 bg-emerald-500/10' : 
+                                            meeting.status === 'canceled' ? 'text-red-400 bg-red-500/10' :
+                                            'text-amber-400 bg-amber-500/10'
+                                        } rounded-full">
+                                            ${meeting.status.charAt(0).toUpperCase() + meeting.status.slice(1)}
+                                        </span>
+                                    </div>
                                 </div>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
                                         <p class="text-sm text-slate-400">Start Time</p>
-                                        <p class="text-sm text-white">${startTime.toLocaleString()}</p>
+                                        <p class="text-sm ${meeting.status === 'canceled' ? 'text-slate-400' : 'text-white'}">${startTime.toLocaleString()}</p>
                                     </div>
                                     <div>
                                         <p class="text-sm text-slate-400">End Time</p>
-                                        <p class="text-sm text-white">${endTime.toLocaleString()}</p>
+                                        <p class="text-sm ${meeting.status === 'canceled' ? 'text-slate-400' : 'text-white'}">${endTime.toLocaleString()}</p>
                                     </div>
                                 </div>
-                                ${meeting.location ? `
+                                ${guests.length > 0 ? `
+                                    <div class="mt-3 pt-3 border-t border-slate-700/50">
+                                        <p class="text-sm text-slate-400 mb-2">Guests (${guests.length})</p>
+                                        <div class="flex flex-wrap gap-2">
+                                            ${guests.map(guest => `
+                                                <span class="text-xs text-violet-400 bg-violet-500/10 px-2 py-1 rounded-full">
+                                                    ${guest.email}
+                                                </span>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                ${location.join_url && meeting.status !== 'canceled' ? `
                                     <div class="mt-3 pt-3 border-t border-slate-700/50">
                                         <div class="flex items-center justify-between">
                                             <span class="text-sm text-slate-400">Meeting Location</span>
-                                            ${meeting.location.join_url ? `
-                                                <a href="${meeting.location.join_url}" 
-                                                   target="_blank"
-                                                   class="text-sm text-violet-400 hover:text-violet-300">
-                                                    Join Meeting
-                                                    <i class="fas fa-external-link-alt ml-1 text-xs"></i>
-                                                </a>
+                                            <a href="${location.join_url}" 
+                                               target="_blank"
+                                               class="text-sm text-violet-400 hover:text-violet-300">
+                                                Join Meeting
+                                                <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                            </a>
+                                        </div>
+                                        <p class="text-sm text-white mt-1">${location.type.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
+                                    </div>
+                                ` : ''}
+                                ${meeting.cancellation ? `
+                                    <div class="mt-3 pt-3 border-t border-red-500/30">
+                                        <p class="text-sm text-red-400">Cancellation Details</p>
+                                        <div class="mt-2 text-sm">
+                                            <p class="text-red-400">Canceled by: ${meeting.cancellation.canceled_by}</p>
+                                            ${meeting.cancellation.reason ? `
+                                                <p class="text-slate-400 mt-1">Reason: ${meeting.cancellation.reason}</p>
                                             ` : ''}
                                         </div>
-                                        <p class="text-sm text-white mt-1">${meeting.location.type.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
                                     </div>
                                 ` : ''}
                             </div>
@@ -454,9 +553,9 @@
                     meetingsList.innerHTML = `
                         ${categorizedAppointments.upcoming.length > 0 ? `
                             <div class="space-y-4">
-                                ${categorizedAppointments.upcoming.slice(0, 3).map(renderMeetingCard).join('')}
-                                ${categorizedAppointments.upcoming.length > 3 ? `
-                                    <a href="./upcoming_events.html" class="block text-center py-3 text-violet-400 hover:text-violet-300 transition-colors font-medium">
+                                ${categorizedAppointments.upcoming.slice(0, 6).map(renderMeetingCard).join('')}
+                                ${categorizedAppointments.upcoming.length > 6 ? `
+                                    <a href="./upcoming_events.html" class="block text-center py-3 text-violet-400 hover:text-violet-300 transition-colors font-medium bg-violet-500/10 rounded-xl hover:bg-violet-500/20">
                                         View All Upcoming Meetings (${categorizedAppointments.upcoming.length})
                                         <i class="fas fa-arrow-right ml-2"></i>
                                     </a>
@@ -480,9 +579,9 @@
                         pastMeetingsList.innerHTML = `
                             ${categorizedAppointments.past.length > 0 ? `
                                 <div class="space-y-4">
-                                    ${categorizedAppointments.past.slice(0, 3).map(renderMeetingCard).join('')}
-                                    ${categorizedAppointments.past.length > 3 ? `
-                                        <a href="./past_events.html" class="block text-center py-3 text-violet-400 hover:text-violet-300 transition-colors font-medium">
+                                    ${categorizedAppointments.past.slice(0, 6).map(renderMeetingCard).join('')}
+                                    ${categorizedAppointments.past.length > 6 ? `
+                                        <a href="./past_events.html" class="block text-center py-3 text-violet-400 hover:text-violet-300 transition-colors font-medium bg-violet-500/10 rounded-xl hover:bg-violet-500/20">
                                             View All Past Meetings (${categorizedAppointments.past.length})
                                             <i class="fas fa-arrow-right ml-2"></i>
                                         </a>
@@ -651,51 +750,104 @@
             const pastCount = pastAppointmentsData ? JSON.parse(pastAppointmentsData).length : 0;
 
             const meetingDistributionData = {
-                labels: ['Upcoming', 'Completed', 'Cancelled'],
+                labels: ['Upcoming', 'Past'],
                 datasets: [{
-                    data: [upcomingCount, pastCount, 0], // Using actual data from localStorage
+                    data: [
+                        upcomingCount,
+                        pastCount
+                    ],
                     backgroundColor: [
                         'rgba(139, 92, 246, 0.8)', // violet for upcoming
-                        'rgba(16, 185, 129, 0.8)', // emerald for completed
-                        'rgba(239, 68, 68, 0.8)'   // red for cancelled
+                        'rgba(16, 185, 129, 0.8)'  // emerald for past
                     ],
                     borderColor: [
                         'rgba(139, 92, 246, 1)',
-                        'rgba(16, 185, 129, 1)',
+                        'rgba(16, 185, 129, 1)'
+                    ],
+                    borderWidth: 1
+                }, {
+                    data: [
+                        0,
+                        0
+                    ],
+                    backgroundColor: [
+                        'rgba(239, 68, 68, 0.8)', // red for canceled
+                        'rgba(239, 68, 68, 0.8)'  // red for canceled
+                    ],
+                    borderColor: [
+                        'rgba(239, 68, 68, 1)',
                         'rgba(239, 68, 68, 1)'
                     ],
                     borderWidth: 1
                 }]
             };
 
-            new Chart(meetingDistributionCtx, {
-                type: 'doughnut',
-                data: meetingDistributionData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                color: 'rgba(255, 255, 255, 0.8)',
-                                font: {
-                                    family: "'Plus Jakarta Sans', sans-serif"
-                                }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.raw || 0;
-                                    return `${label}: ${value} Meeting${value !== 1 ? 's' : ''}`;
-                                }
+            const meetingDistributionOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: 'rgba(255, 255, 255, 0.8)',
+                            font: {
+                                family: "'Plus Jakarta Sans', sans-serif"
+                            },
+                            generateLabels: function(chart) {
+                                return [{
+                                    text: 'Active',
+                                    fillStyle: 'rgba(139, 92, 246, 0.8)',
+                                    strokeStyle: 'rgba(139, 92, 246, 1)',
+                                    lineWidth: 1,
+                                    hidden: false
+                                }, {
+                                    text: 'Canceled',
+                                    fillStyle: 'rgba(239, 68, 68, 0.8)',
+                                    strokeStyle: 'rgba(239, 68, 68, 1)',
+                                    lineWidth: 1,
+                                    hidden: false
+                                }];
                             }
                         }
                     },
-                    cutout: '70%' // Makes the doughnut chart thinner
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const datasetIndex = context.datasetIndex;
+                                const value = context.raw || 0;
+                                const label = datasetIndex === 0 ? 'Active' : 'Canceled';
+                                return `${label}: ${value} Meeting${value !== 1 ? 's' : ''}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.8)'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.8)',
+                            stepSize: 1
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    }
                 }
+            };
+
+            new Chart(meetingDistributionCtx, {
+                type: 'bar',
+                data: meetingDistributionData,
+                options: meetingDistributionOptions
             });
 
             // Simplified Activity Chart

@@ -1,0 +1,110 @@
+loop_count = {1,2,3,4};
+resp = crmAPIRequest.toMap();
+params = resp.get("params");
+RequestedType = params.get('crmAPIRequest[type]');
+// RequestedType = 2;
+// map types
+AppointmentType = 1;
+GetAppointments = 2;
+GetCurrentUser = 3;
+ZohoMeeting = 4;
+// // output data
+out_data = "{'msg': 'there is an error'}";
+if(RequestedType == AppointmentType)
+{
+	dynamic_map = Map();
+	usr_uri = zoho.crm.getOrgVariable("calendly10__user_uri");
+	dynamic_map.put("userUri",usr_uri);
+	out_data = zoho.crm.invokeConnector("calendly10.calendlybk.geteventtypes",dynamic_map);
+}
+else if(RequestedType == GetAppointments)
+{
+	dynamic_map = Map();
+	usr_uri = zoho.crm.getOrgVariable("calendly10__user_uri");
+	dynamic_map.put("userUri",usr_uri);
+	out_data = zoho.crm.invokeConnector("calendly10.calendlybk.geteventslist",dynamic_map).toMap();
+	next_token = out_data.get("response").toMap().get("pagination").get("next_page_token");
+	collections_data = List();
+	collections_data.addAll(out_data.get("response").toMap().get("collection").toList());
+	for each  i in loop_count
+	{
+		if(next_token != null)
+		{
+			dynamic_map_next = Map();
+			dynamic_map_next.put("userUri",usr_uri);
+			dynamic_map_next.put("page_token_data",next_token);
+			data_next = zoho.crm.invokeConnector("calendly10.calendlybk.getpageevents",dynamic_map_next).toMap();
+			try 
+			{
+				if(data_next.get("response").toMap().get("pagination").get("next_page_token") != null)
+				{
+					next_token = data_next.get("response").toMap().get("pagination").get("next_page_token");
+					collections_data.addAll(data_next.get("response").toMap().get("collection").toList());
+				}
+				else
+				{
+					next_token = null;
+					sendmail
+					[
+						from :zoho.adminuserid
+						to :{"nagipragalathan@gmail.com","nagi@xtracut.com"}
+						subject :"Out of data..!"
+						message :collections_data + "next_token is null" + "......................" + data_next.get("response").toMap().get("pagination").get("next_page_token") + collections_data.size()
+					]
+				}
+			}
+			catch (e)
+			{
+				sendmail
+				[
+					from :zoho.adminuserid
+					to :{"nagipragalathan@gmail.com","nagi@xtracut.com"}
+					subject :"Error not updated..!"
+					message :collections_data + "next_token is null on error"
+				]
+			}
+			sendmail
+			[
+				from :zoho.adminuserid
+				to :{"nagipragalathan@gmail.com","nagi@xtracut.com"}
+				subject :"Next Page Testing data..!"
+				message :collections_data.size() + ".................." + data_next + ".................................." + collections_data
+			]
+		}
+		else
+		{
+			info "the data is null";
+		}
+	}
+	out_data = Map();
+	collection_map_data = Map();
+	collection_map_data.put("collection",collections_data);
+	out_data.put("response",collection_map_data);
+	out_data.put("status_code",200);
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :{"nagipragalathan@gmail.com","nagi@xtracut.com"}
+		subject :"Final data!"
+		message :collections_data.size() + ".................." + out_data
+	]
+}
+else if(RequestedType == GetCurrentUser)
+{
+	dynamic_map = Map();
+	out_data = zoho.crm.invokeConnector("calendly10.calendlybk.getuser",dynamic_map);
+}
+else if(RequestedType == ZohoMeeting)
+{
+	out_data = zoho.crm.getRecords('Events');
+}
+org_data = zoho.crm.getOrgVariable("calendly10__org_uri");
+sendmail
+[
+	from :zoho.adminuserid
+	to :{"nagipragalathan@gmail.com","nagi@xtracut.com"}
+	subject :"Mesg from Api handler :)"
+	message :params + ".............." + RequestedType + "............" + out_data + "............" + usr_uri + "............" + org_data
+]
+// return paramsPairs + out_data + respBody;
+return out_data.toString();
