@@ -458,8 +458,14 @@
                     document.getElementById('upcomingEvents').textContent = categorizedAppointments.upcoming.length;
                     
                     // Count today's meetings
-                    const todayMeetings = [...categorizedAppointments.upcoming, ...categorizedAppointments.pending]
-                        .filter(event => new Date(event.start_time).toISOString().split('T')[0] === today.toISOString().split('T')[0]);
+                    const todayStart = new Date(today);
+                    const todayEnd = new Date(today);
+                    todayEnd.setHours(23, 59, 59, 999);
+
+                    const todayMeetings = appointments.filter(meeting => {
+                        const meetingStart = new Date(meeting.start_time);
+                        return meetingStart >= todayStart && meetingStart <= todayEnd && meeting.status !== 'canceled';
+                    });
                     document.getElementById('todayMeetings').textContent = todayMeetings.length;
 
                     // Update upcoming meetings list
@@ -850,144 +856,92 @@
                 options: meetingDistributionOptions
             });
 
-            // Simplified Activity Chart
-            const weeklyActivityCtx = document.getElementById('weeklyActivityChart').getContext('2d');
-            
-            // Get appointments data from both upcoming and past meetings
-            const weeklyUpcomingAppointments = localStorage.getItem('calendly_upcomingAppointments');
-            const weeklyPastAppointments = localStorage.getItem('calendly_past_events');
+            // Event Types Duration Chart
+            const eventTypesDurationCtx = document.getElementById('weeklyActivityChart').getContext('2d');
 
-            let allAppointments = [];
-
-            // Get current week's start and end dates
-            const now = new Date();
-            const startOfWeek = new Date(now);
-            startOfWeek.setHours(0, 0, 0, 0);
-            startOfWeek.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
-
-            const endOfWeek = new Date(startOfWeek);
-            endOfWeek.setDate(startOfWeek.getDate() + 6); // End of week (Saturday)
-            endOfWeek.setHours(23, 59, 59, 999);
-
-            console.log('Current week range:', {
-                start: startOfWeek.toLocaleString(),
-                end: endOfWeek.toLocaleString()
-            });
-
-            // Process upcoming appointments
-            if (weeklyUpcomingAppointments) {
-                const parsed = JSON.parse(weeklyUpcomingAppointments);
-                const upcomingMeetings = parsed.collection || [];
-                allAppointments = allAppointments.concat(upcomingMeetings);
-            }
-
-            // Process past appointments
-            if (weeklyPastAppointments) {
-                const parsed = JSON.parse(weeklyPastAppointments);
-                const pastMeetings = parsed.collection || [];
-                allAppointments = allAppointments.concat(pastMeetings);
-            }
-
-            // Filter appointments for current week only
-            const currentWeekAppointments = allAppointments.filter(appointment => {
-                const appointmentDate = new Date(appointment.start_time);
-                return appointmentDate >= startOfWeek && appointmentDate <= endOfWeek;
-            });
-
-            console.log('Current week appointments:', currentWeekAppointments);
-
-            // Group appointments by type
-            const appointmentTypes = {};
-            currentWeekAppointments.forEach(appointment => {
-                const type = appointment.name;
-                if (!appointmentTypes[type]) {
-                    appointmentTypes[type] = 0;
-                }
-                appointmentTypes[type]++;
-            });
-
-            // Prepare data for chart
-            const types = Object.keys(appointmentTypes);
-            const counts = Object.values(appointmentTypes);
-
-            const activityData = {
-                labels: types,
+            // Get appointment types data from localStorage
+            const appointmentTypesData = localStorage.getItem('calendly_appointmentTypes');
+            let eventTypesDurationData = {
+                labels: [],
                 datasets: [{
-                    label: 'Number of Meetings',
-                    data: counts,
-                    backgroundColor: [
-                        'rgba(139, 92, 246, 0.8)',
-                        'rgba(16, 185, 129, 0.8)',
-                        'rgba(244, 114, 182, 0.8)',
-                        'rgba(59, 130, 246, 0.8)'
-                    ],
-                    borderColor: [
-                        'rgba(139, 92, 246, 1)',
-                        'rgba(16, 185, 129, 1)',
-                        'rgba(244, 114, 182, 1)',
-                        'rgba(59, 130, 246, 1)'
-                    ],
-                    borderWidth: 1
+                    label: 'Duration (minutes)',
+                    data: [],
+                    backgroundColor: 'rgba(139, 92, 246, 0.8)', // violet
+                    borderColor: 'rgba(139, 92, 246, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4
                 }]
             };
 
-            new Chart(weeklyActivityCtx, {
-                type: 'bar',
-                data: activityData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    indexAxis: 'y', // Horizontal bars
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                color: 'rgba(255, 255, 255, 0.8)',
-                                font: {
-                                    family: "'Plus Jakarta Sans', sans-serif"
-                                },
-                                stepSize: 1
-                            }
+            if (appointmentTypesData) {
+                const types = JSON.parse(appointmentTypesData);
+                if (types.collection) {
+                    eventTypesDurationData.labels = types.collection.map(type => type.name);
+                    eventTypesDurationData.datasets[0].data = types.collection.map(type => type.duration);
+                }
+            }
+
+            const eventTypesDurationOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',  // Horizontal bars
+                scales: {
+                    x: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
                         },
-                        y: {
-                            grid: {
-                                display: false
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.8)',
+                            font: {
+                                family: "'Plus Jakarta Sans', sans-serif"
                             },
-                            ticks: {
-                                color: 'rgba(255, 255, 255, 0.8)',
-                                font: {
-                                    family: "'Plus Jakarta Sans', sans-serif"
-                                }
+                            callback: function(value) {
+                                return value + ' min';
                             }
                         }
                     },
-                    plugins: {
-                        legend: {
+                    y: {
+                        grid: {
                             display: false
                         },
-                        title: {
-                            display: true,
-                            text: 'This Week\'s Meetings',
+                        ticks: {
                             color: 'rgba(255, 255, 255, 0.8)',
                             font: {
-                                family: "'Plus Jakarta Sans', sans-serif",
-                                size: 16
-                            },
-                            padding: 20
+                                family: "'Plus Jakarta Sans', sans-serif"
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'Event Types Duration',
+                        color: 'rgba(255, 255, 255, 0.8)',
+                        font: {
+                            family: "'Plus Jakarta Sans', sans-serif",
+                            size: 16,
+                            weight: 'normal'
                         },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const count = context.parsed.x;
-                                    return `${count} Meeting${count !== 1 ? 's' : ''}`;
-                                }
+                        padding: 20
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.raw || 0;
+                                return `Duration: ${value} minutes`;
                             }
                         }
                     }
                 }
+            };
+
+            new Chart(eventTypesDurationCtx, {
+                type: 'bar',
+                data: eventTypesDurationData,
+                options: eventTypesDurationOptions
             });
         }
 
@@ -1176,14 +1130,14 @@
                         </div>
                     </div>
 
-                    <!-- Weekly Activity Chart -->
+                    <!-- Event Types Duration Chart -->
                     <div class="analytics-card rounded-2xl p-6">
                         <div class="flex items-center justify-between mb-6">
                             <div class="flex items-center space-x-3">
                                 <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
                                     <i class="fas fa-chart-line text-white text-xl"></i>
                                 </div>
-                                <h3 class="text-xl font-semibold text-white">Weekly Activity</h3>
+                                <h3 class="text-xl font-semibold text-white">Event Types Duration</h3>
                             </div>
                         </div>
                         <div class="relative h-[300px]">
