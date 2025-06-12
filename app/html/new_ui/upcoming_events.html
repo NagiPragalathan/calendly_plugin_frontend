@@ -693,7 +693,7 @@
         <aside class="sidebar glass-effect w-72 min-h-screen fixed border-r border-slate-700/50">
             <div class="p-6">
                 <div class="flex items-center justify-center mb-10">
-                    <h1 class="text-2xl font-bold bg-gradient-to-r from-violet-500 to-fuchsia-500 bg-clip-text text-transparent">Calendly</h1>
+                    <h1 class="text-2xl font-bold bg-gradient-to-r from-violet-500 to-fuchsia-500 bg-clip-text text-transparent">Calendly Dashboard</h1>
                 </div>
                 
                 <!-- Navigation Links -->
@@ -722,12 +722,7 @@
                         </div>
                         <span class="font-medium">Event Types</span>
                     </a>
-                    <a href="../settingsWD.html" class="nav-link flex items-center space-x-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800/50 rounded-xl transition-all duration-300 group">
-                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                            <i class="fas fa-cog text-white"></i>
-                        </div>
-                        <span class="font-medium">Settings</span>
-                    </a>
+
                 </nav>
             </div>
             
@@ -1310,24 +1305,32 @@
 
         // Event members
         const membersContainer = document.getElementById('eventModalMembers');
-        membersContainer.innerHTML = event.event_memberships.map(member => `
-            <div class="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors">
-                <div class="flex items-center space-x-3">
-                    <div class="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center">
-                        <span class="text-violet-400 font-medium text-lg">${member.user_name.charAt(0)}</span>
+        if (event.event_memberships && event.event_memberships.length > 0) {
+            membersContainer.innerHTML = event.event_memberships.map(member => `
+                <div class="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center">
+                            <span class="text-violet-400 font-medium text-lg">${member.user_name ? member.user_name.charAt(0) : '?'}</span>
+                        </div>
+                        <div>
+                            <p class="text-white font-medium">${member.user_name || 'Unknown'}</p>
+                            <p class="text-sm text-slate-400">${member.user_email || 'No email'}</p>
+                        </div>
                     </div>
-                    <div>
-                        <p class="text-white font-medium">${member.user_name}</p>
-                        <p class="text-sm text-slate-400">${member.user_email}</p>
+                    <div class="text-right">
+                        <div class="text-sm px-3 py-1.5 rounded-lg bg-slate-700/50 text-slate-300">
+                            <p>${new Date(member.buffered_start_time).toLocaleTimeString()} - ${new Date(member.buffered_end_time).toLocaleTimeString()}</p>
+                        </div>
                     </div>
                 </div>
-                <div class="text-right">
-                    <div class="text-sm px-3 py-1.5 rounded-lg bg-slate-700/50 text-slate-300">
-                        <p>${new Date(member.buffered_start_time).toLocaleTimeString()} - ${new Date(member.buffered_end_time).toLocaleTimeString()}</p>
-                    </div>
+            `).join('');
+        } else {
+            membersContainer.innerHTML = `
+                <div class="text-center py-6 bg-slate-800/50 rounded-lg">
+                    <p class="text-slate-400">No members for this event</p>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }
 
         // Event guests
         const guestsContainer = document.getElementById('eventModalGuests');
@@ -1336,11 +1339,11 @@
                 <div class="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors">
                     <div class="flex items-center space-x-3">
                         <div class="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                            <span class="text-amber-400 font-medium text-lg">${guest.name.charAt(0)}</span>
+                            <span class="text-amber-400 font-medium text-lg">${guest.name ? guest.name.charAt(0) : '?'}</span>
                         </div>
                         <div>
-                            <p class="text-white font-medium">${guest.name}</p>
-                            <p class="text-sm text-slate-400">${guest.email}</p>
+                            <p class="text-white font-medium">${guest.name || 'Unknown'}</p>
+                            <p class="text-sm text-slate-400">${guest.email || 'No email'}</p>
                         </div>
                     </div>
                 </div>
@@ -1357,17 +1360,21 @@
         }
 
         // Calendar details
-        document.getElementById('eventModalCalendarKind').textContent = 
-            event.calendar_event.kind.charAt(0).toUpperCase() + event.calendar_event.kind.slice(1);
-        document.getElementById('eventModalExternalId').textContent = event.calendar_event.external_id;
+        if (event.calendar_event) {
+            document.getElementById('eventModalCalendarKind').textContent = 
+                event.calendar_event.kind.charAt(0).toUpperCase() + event.calendar_event.kind.slice(1);
+            document.getElementById('eventModalExternalId').textContent = event.calendar_event.external_id || 'N/A';
+        }
 
         // Invitees counter
-        document.getElementById('eventModalInviteesActive').textContent = event.invitees_counter.active;
-        document.getElementById('eventModalInviteesTotal').textContent = event.invitees_counter.total;
-        document.getElementById('eventModalInviteesLimit').textContent = event.invitees_counter.limit;
+        if (event.invitees_counter) {
+            document.getElementById('eventModalInviteesActive').textContent = event.invitees_counter.active || 0;
+            document.getElementById('eventModalInviteesTotal').textContent = event.invitees_counter.total || 0;
+            document.getElementById('eventModalInviteesLimit').textContent = event.invitees_counter.limit || 'N/A';
+        }
 
         // Event URI
-        document.getElementById('eventModalUri').textContent = event.uri;
+        document.getElementById('eventModalUri').textContent = event.uri || 'N/A';
 
         // Show modal
         const modal = document.getElementById('eventDetailsModal');
@@ -1484,10 +1491,12 @@
             document.getElementById('monthViewBtn').classList.toggle('bg-violet-500', view === 'month');
 
             const today = new Date();
-            const eventCounts = new Map();
+            let labels = [];
+            let data = [];
             
             if (view === 'week') {
                 // Get the next 7 days
+                const eventCounts = new Map();
                 for (let i = 0; i < 7; i++) {
                     const date = new Date(today);
                     date.setDate(today.getDate() + i);
@@ -1504,21 +1513,20 @@
                 });
 
                 // Update chart data
-                eventsChart.data.labels = Array.from(eventCounts.keys()).map(date => 
+                labels = Array.from(eventCounts.keys()).map(date => 
                     new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
                 );
+                data = Array.from(eventCounts.values());
             } else {
-                // Get the next 30 days grouped by week
+                // Get the next 4 weeks
                 const weekCounts = new Map();
                 for (let i = 0; i < 4; i++) {
                     const weekStart = new Date(today);
                     weekStart.setDate(today.getDate() + (i * 7));
                     const weekEnd = new Date(weekStart);
                     weekEnd.setDate(weekStart.getDate() + 6);
-                    weekCounts.set(
-                        `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
-                        0
-                    );
+                    const weekKey = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                    weekCounts.set(weekKey, 0);
                 }
 
                 // Count events for each week
@@ -1536,11 +1544,13 @@
                 });
 
                 // Update chart data
-                eventsChart.data.labels = Array.from(weekCounts.keys());
-                eventCounts = weekCounts;
+                labels = Array.from(weekCounts.keys());
+                data = Array.from(weekCounts.values());
             }
 
-            eventsChart.data.datasets[0].data = Array.from(eventCounts.values());
+            // Update chart
+            eventsChart.data.labels = labels;
+            eventsChart.data.datasets[0].data = data;
             eventsChart.update();
         }
     </script>
